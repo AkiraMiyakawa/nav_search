@@ -294,7 +294,7 @@
     /* Debug Panel */
     #debug-panel {
       position: fixed;
-      top: 115px;
+      top: 200px;  /* ← 好みで調整 */
       right: 10px;
       z-index: 1000;
       background: rgba(0, 0, 0, 0.85);
@@ -405,7 +405,7 @@
     /* ── Passenger Search UI ── */
     #passenger-search-ui {
       position: fixed;
-      top: 20px;
+      top: 100px;
       left: 50%;
       transform: translateX(-50%);
       z-index: 1200;
@@ -579,7 +579,7 @@
       .debug-item { gap: 5px; }
       .debug-key { font-size: 9px; }
       .debug-value { font-size: 11px; }
-      #passenger-search-ui { top: 10px; width: calc(100vw - 20px); }
+      #passenger-search-ui { top: 90px; width: calc(100vw - 20px); }
     }
   </style>
 </head>
@@ -1333,65 +1333,75 @@
         this._createUI();
         this._attachEventListeners();
       }
-      _createUI() {
-        this.container.innerHTML = `
-          <div class="nav-ui-container">
-            <div class="nav-controls">
-              <button id="nav-stop-btn" class="nav-button nav-button-danger" title="Stop Navigation">✕</button>
-              <button id="nav-voice-toggle" class="nav-button nav-button-secondary" title="Toggle Voice">🔊</button>
-              <button id="nav-recenter" class="nav-button nav-button-secondary" title="Recenter">📍</button>
+    _createUI() {
+      this.container.innerHTML = `
+        <div class="nav-ui-container">
+          <div class="nav-controls">
+            <button id="nav-stop-btn" class="nav-button nav-button-danger" title="Stop Navigation">✕</button>
+            <button id="nav-voice-toggle" class="nav-button nav-button-secondary" title="Toggle Voice">🔊</button>
+            <button id="nav-recenter" class="nav-button nav-button-secondary" title="Recenter">📍</button>
+          </div>
+          <div class="nav-instruction-banner">
+            <div class="nav-instruction-primary" id="nav-instruction">Calculating route...</div>
+            <div class="nav-instruction-distance" id="nav-distance-to-step">--</div>
+          </div>
+          <div class="nav-info-panel">
+            <div class="nav-info-item">
+              <div class="nav-info-label">Total Distance</div>
+              <div class="nav-info-value" id="nav-distance-remaining">--</div>
             </div>
-            <div class="nav-info-panel">
-              <div class="nav-info-item">
-                <div class="nav-info-label">Total Distance</div>
-                <div class="nav-info-value" id="nav-distance-remaining">--</div>
-              </div>
-              <div class="nav-info-item">
-                <div class="nav-info-label">Time Remaining</div>
-                <div class="nav-info-value" id="nav-time-remaining">--</div>
-              </div>
-              <div class="nav-info-item">
-                <div class="nav-info-label">Arrival</div>
-                <div class="nav-info-value" id="nav-eta">--</div>
-              </div>
+            <div class="nav-info-item">
+              <div class="nav-info-label">Time Remaining</div>
+              <div class="nav-info-value" id="nav-time-remaining">--</div>
             </div>
-            <div id="nav-status" class="nav-status hidden">
-              <div id="nav-status-text"></div>
+            <div class="nav-info-item">
+              <div class="nav-info-label">Arrival</div>
+              <div class="nav-info-value" id="nav-eta">--</div>
             </div>
-          </div>`;
-        this._injectStyles();
-      }
-      _injectStyles() {
-        if (document.getElementById('nav-ui-styles')) return;
-        const styles = document.createElement('style');
-        styles.id = 'nav-ui-styles';
-        styles.textContent = `
-          .nav-ui-container { position:relative; z-index:1000; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
-          .nav-controls { position:fixed; left:10px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:8px; z-index:1001; }
-          .nav-button { width:40px; height:40px; padding:0; border:none; border-radius:8px; font-size:16px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
-          .nav-info-panel { position:fixed; top:15px; right:10px; background:rgba(128,128,128,0.8); color:white; padding:12px 16px; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.2); z-index:1000; display:flex; gap:20px; }
-          .nav-info-item { display:flex; flex-direction:column; align-items:flex-end; }
-          .nav-info-label { font-size:11px; opacity:0.9; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
-          .nav-info-value { font-size:16px; font-weight:700; }
-          .nav-button-danger { background:#ef4444; color:white; }
-          .nav-button-danger:hover { background:#dc2626; }
-          .nav-button-secondary { background:#f3f4f6; color:#374151; }
-          .nav-button-secondary:hover { background:#e5e7eb; }
-          .nav-button-secondary.active { background:#667eea; color:white; }
-          .nav-status { position:fixed; top:80px; left:10px; right:10px; background:#fbbf24; color:#92400e; padding:12px; border-radius:8px; font-weight:600; text-align:center; z-index:1000; }
-          .nav-status.hidden { display:none; }
-          .nav-status.error { background:#ef4444; color:white; }
-          .nav-status.success { background:#10b981; color:white; }
-          @media (max-width:768px) {
-            .nav-controls { left:5px; }
-            .nav-button { width:36px; height:36px; font-size:14px; }
-            .nav-info-panel { top:10px; right:5px; padding:10px 12px; gap:15px; }
-            .nav-info-label { font-size:9px; }
-            .nav-info-value { font-size:14px; }
-            .nav-status { top:70px; left:5px; right:5px; padding:10px; font-size:13px; }
-          }`;
-        document.head.appendChild(styles);
-}
+          </div>
+          <div id="nav-status" class="nav-status hidden">
+            <div id="nav-status-text"></div>
+          </div>
+        </div>`;
+      this._injectStyles();
+    }
+    _injectStyles() {
+      if (document.getElementById('nav-ui-styles')) return;
+      const styles = document.createElement('style');
+      styles.id = 'nav-ui-styles';
+      styles.textContent = `
+        .nav-ui-container { position:relative; z-index:1000; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+        .nav-controls { position:fixed; left:10px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:8px; z-index:1001; }
+        .nav-button { width:40px; height:40px; padding:0; border:none; border-radius:8px; font-size:16px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+        .nav-instruction-banner { position:fixed; top:10px; left:60px; width:260px; right:auto; background:linear-gradient(135deg,#667eea 0%,#764ba2 100%); color:white; padding:12px 16px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3); z-index:1000; pointer-events:none; }color:white; padding:12px 16px; border-radius:12px; box-shadow:0 4px 20px rgba(0,0,0,0.3); z-index:1000; }
+        .nav-instruction-primary { font-size:15px; font-weight:600; margin-bottom:4px; line-height:1.3; }
+        .nav-instruction-distance { font-size:22px; font-weight:700; }
+        .nav-info-panel { position:fixed; top:105px; right:10px; background:rgba(128,128,128,0.8); color:white; padding:12px 16px; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.2); z-index:1000; display:flex; gap:20px; }
+        .nav-info-item { display:flex; flex-direction:column; align-items:flex-end; }
+        .nav-info-label { font-size:11px; opacity:0.9; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+        .nav-info-value { font-size:16px; font-weight:700; }
+        .nav-button-danger { background:#ef4444; color:white; }
+        .nav-button-danger:hover { background:#dc2626; }
+        .nav-button-secondary { background:#f3f4f6; color:#374151; }
+        .nav-button-secondary:hover { background:#e5e7eb; }
+        .nav-button-secondary.active { background:#667eea; color:white; }
+        .nav-status { position:fixed; top:175px; left:10px; right:10px; background:#fbbf24; color:#92400e; padding:12px; border-radius:8px; font-weight:600; text-align:center; z-index:1000; }
+        .nav-status.hidden { display:none; }
+        .nav-status.error { background:#ef4444; color:white; }
+        .nav-status.success { background:#10b981; color:white; }
+        @media (max-width:768px) {
+          .nav-controls { left:5px; }
+          .nav-button { width:36px; height:36px; font-size:14px; }
+          .nav-instruction-banner { top:5px; left:50px; width:220px; right:auto; padding:10px 12px; }
+          .nav-instruction-primary { font-size:13px; }
+          .nav-instruction-distance { font-size:18px; }
+          .nav-info-panel { top:90px; right:5px; padding:10px 12px; gap:15px; }
+          .nav-info-label { font-size:9px; }
+          .nav-info-value { font-size:14px; }
+          .nav-status { top:160px; left:5px; right:5px; padding:10px; font-size:13px; }
+        }`;
+      document.head.appendChild(styles);
+    }
       _attachEventListeners() {
         const stopBtn = document.getElementById('nav-stop-btn');
         const voiceToggle = document.getElementById('nav-voice-toggle');
@@ -1431,20 +1441,26 @@
           this._showStatus('Error: ' + data.message, 'error', 3000);
         };
       }
-      _updateProgress(data) {
-        const distRemainingEl = document.getElementById('nav-distance-remaining');
-        if (distRemainingEl) distRemainingEl.textContent = this._formatDistance(data.distanceRemaining);
-        const timeRemainingEl = document.getElementById('nav-time-remaining');
-        if (timeRemainingEl) timeRemainingEl.textContent = this._formatDuration(data.durationRemaining);
-        const etaEl = document.getElementById('nav-eta');
-        if (etaEl) {
-          const eta = new Date(Date.now() + data.durationRemaining * 1000);
-          etaEl.textContent = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-        }
+    _updateProgress(data) {
+      // distance to next step → banner
+      const distToStepEl = document.getElementById('nav-distance-to-step');
+      if (distToStepEl) distToStepEl.textContent = this._formatDistance(data.distanceToNextStep);
+
+      const distRemainingEl = document.getElementById('nav-distance-remaining');
+      if (distRemainingEl) distRemainingEl.textContent = this._formatDistance(data.distanceRemaining);
+      const timeRemainingEl = document.getElementById('nav-time-remaining');
+      if (timeRemainingEl) timeRemainingEl.textContent = this._formatDuration(data.durationRemaining);
+      const etaEl = document.getElementById('nav-eta');
+      if (etaEl) {
+        const eta = new Date(Date.now() + data.durationRemaining * 1000);
+        etaEl.textContent = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
       }
-      _updateInstruction(data) {
-        // instruction banner removed — voice only
-      }
+    }
+
+    _updateInstruction(data) {
+      const instructionEl = document.getElementById('nav-instruction');
+      if (instructionEl) instructionEl.textContent = data.instruction;
+    }
       _showStatus(message, type = 'warning', duration = null) {
         const statusEl = document.getElementById('nav-status');
         const statusTextEl = document.getElementById('nav-status-text');
@@ -2120,8 +2136,8 @@
         cameraFollowEnabled: true,
         profile: selectedProfile,
         language: selectedLanguage,
-        cameraPitch: 60,
-        cameraZoom: 17
+        cameraPitch: 75,
+        cameraZoom: 18
       });
 
       navigationUI = new NavigationUI('nav-ui', navigation);
