@@ -1,0 +1,2494 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Turn-by-Turn Navigation Demo</title>
+  <link href="https://fonts.googleapis.com/css2?family=Raleway&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <h1>Mapbox Demos</h1> 
+  </header>
+  <main>
+    <p>&lt;!DOCTYPE html&gt;</p>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <title>Turn-by-Turn Navigation Demo</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="icon" href="data:;base64,iVBORw0KGgo=" />
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-language/v1.0.0/mapbox-gl-language.js"></script>
+<script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.1/jquery.min.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.js"></script>
+<link href="https://api.mapbox.com/mapbox-gl-js/v3.18.0/mapbox-gl.css" rel="stylesheet" />
+<script src="https://unpkg.com/d3@7.8.5/dist/d3.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.2/mapbox-gl-geocoder.min.js"></script>
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.2/mapbox-gl-geocoder.css" type="text/css" />
+<script src="https://unpkg.com/leaflet@1.9.3/dist/leaflet.js" integrity="sha256-WBkoXOwTeyKclOHuWtc+i2uENFpDZ9YPdf5Hf+D7ewM=" crossorigin=""></script>
+<script src="https://kenji-shima.github.io/resource-files/polyline.js" type="module"></script>
+<script src="https://kenji-shima.github.io/resource-files/utils.js"></script>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    }
+    #map {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      width: 100%;
+    }
+    .mapboxgl-ctrl-geocoder {
+      min-width: 240px;
+    }
+    #nav-ui {
+      pointer-events: none;
+    }
+    #nav-ui * {
+      pointer-events: auto;
+    }
+    #setup-panel {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: white;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      z-index: 2000;
+      max-width: 400px;
+      width: 90%;
+      max-height: 90vh;
+      overflow-y: auto;
+      -webkit-overflow-scrolling: touch;
+    }
+    #setup-panel h2 {
+      margin-top: 0;
+      margin-bottom: 10px;
+      color: #333;
+      font-size: 24px;
+    }
+    #setup-panel p {
+      color: #666;
+      line-height: 1.5;
+      font-size: 14px;
+      margin-bottom: 15px;
+    }
+    .input-group {
+      margin-bottom: 15px;
+    }
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      color: #555;
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid #e5e7eb;
+      border-radius: 6px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    .input-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+    .button-group {
+      display: flex;
+      gap: 10px;
+      margin-top: 20px;
+    }
+    .btn {
+      flex: 1;
+      padding: 12px;
+      border: none;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .btn-primary {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+    }
+    .btn-primary:hover {
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(102, 126, 234, 0.4);
+    }
+    .btn-secondary {
+      background: #f3f4f6;
+      color: #374151;
+    }
+    .btn-secondary:hover {
+      background: #e5e7eb;
+    }
+    .hidden {
+      display: none !important;
+    }
+    .location-status {
+      background: #f9fafb;
+      border: 2px solid #e5e7eb;
+      border-radius: 8px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+    .location-status.loading {
+      border-color: #3b82f6;
+      background: #eff6ff;
+    }
+    .location-status.success {
+      border-color: #10b981;
+      background: #ecfdf5;
+    }
+    .location-status.error {
+      border-color: #ef4444;
+      background: #fef2f2;
+    }
+    .status-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 10px;
+    }
+    .status-icon {
+      font-size: 24px;
+      line-height: 1;
+    }
+    .status-icon.spinning {
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+    .status-text {
+      font-size: 16px;
+      font-weight: 600;
+      color: #374151;
+      flex: 1;
+    }
+    .status-details {
+      font-size: 13px;
+      color: #6b7280;
+      margin-top: 8px;
+      line-height: 1.5;
+    }
+    .status-details strong {
+      color: #374151;
+    }
+    .btn:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+      transform: none !important;
+    }
+    .btn-retry {
+      margin-top: 10px;
+      padding: 8px 16px;
+      background: #3b82f6;
+      color: white;
+      border: none;
+      border-radius: 6px;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+    }
+    .btn-retry:hover {
+      background: #2563eb;
+    }
+
+    /* Map Picker Overlay */
+    #map-picker-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 1500;
+      pointer-events: none;
+    }
+    #map-picker-overlay * {
+      pointer-events: auto;
+    }
+    .map-picker-banner {
+      position: absolute;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 20px 30px;
+      border-radius: 12px;
+      box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+      display: flex;
+      align-items: center;
+      gap: 20px;
+      max-width: 90%;
+    }
+    .map-picker-text {
+      flex: 1;
+    }
+    .map-picker-title {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .map-picker-subtitle {
+      font-size: 14px;
+      opacity: 0.9;
+    }
+    .btn-close-picker {
+      background: rgba(255,255,255,0.2);
+      border: 2px solid white;
+      color: white;
+      padding: 10px 20px;
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      white-space: nowrap;
+    }
+    .btn-close-picker:hover {
+      background: rgba(255,255,255,0.3);
+    }
+
+    /* Back to Setup Button */
+    #back-to-setup-btn {
+      position: fixed;
+      left: 10px;
+      top: 50%;
+      transform: translateY(-50%);
+      z-index: 1001;
+      background: #f3f4f6;
+      color: #374151;
+      border: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 8px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.2);
+      font-size: 16px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+      pointer-events: auto;
+    }
+    #back-to-setup-btn.hidden {
+      display: none !important;
+    }
+    #back-to-setup-btn:hover {
+      background: #e5e7eb;
+    }
+    #back-to-setup-btn:active {
+      transform: translateY(-50%) scale(0.95);
+    }
+
+    /* Debug Panel */
+    #debug-panel {
+      position: fixed;
+      top: 115px;
+      right: 10px;
+      z-index: 1000;
+      background: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-family: 'Monaco', 'Courier New', monospace;
+      font-size: 11px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.3);
+      pointer-events: auto;
+      display: flex;
+      gap: 16px;
+      align-items: center;
+    }
+    #debug-panel.hidden {
+      display: none !important;
+    }
+    .debug-item {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      white-space: nowrap;
+    }
+    .debug-key {
+      opacity: 0.7;
+      font-size: 11px;
+    }
+    .debug-value {
+      font-weight: 700;
+      color: #60a5fa;
+      font-size: 13px;
+    }
+
+    /* Simulation Controls */
+    #simulation-controls {
+      position: absolute;
+      bottom: 20px;
+      right: 20px;
+      z-index: 1000;
+    }
+    .sim-panel {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      min-width: 280px;
+    }
+    .sim-header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 12px 15px;
+      border-radius: 12px 12px 0 0;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .sim-title {
+      font-weight: 600;
+      font-size: 14px;
+    }
+    .sim-close {
+      background: rgba(255,255,255,0.2);
+      border: none;
+      color: white;
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 14px;
+      line-height: 1;
+    }
+    .sim-close:hover {
+      background: rgba(255,255,255,0.3);
+    }
+    .sim-body {
+      padding: 15px;
+    }
+    .sim-info {
+      display: flex;
+      justify-content: space-between;
+      margin-bottom: 10px;
+      font-size: 13px;
+      color: #666;
+    }
+    .sim-controls-buttons {
+      display: flex;
+      gap: 8px;
+    }
+    .sim-btn {
+      flex: 1;
+      padding: 6px 8px;
+      border: 2px solid #e5e7eb;
+      background: white;
+      border-radius: 6px;
+      font-size: 12px;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .sim-btn:hover {
+      background: #f3f4f6;
+      border-color: #667eea;
+    }
+    .sim-btn.active {
+      background: #667eea;
+      color: white;
+      border-color: #667eea;
+    }
+
+    /* ── Passenger Search UI ── */
+    #passenger-search-ui {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 1200;
+      width: 340px;
+      max-width: calc(100vw - 40px);
+      pointer-events: auto;
+    }
+
+    #passenger-search-box {
+      width: 100%;
+      padding: 12px 16px;
+      border: none;
+      border-radius: 24px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      font-size: 15px;
+      outline: none;
+      box-sizing: border-box;
+      background: white;
+    }
+
+    #search-suggestions {
+      background: white;
+      border-radius: 12px;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      margin-top: 6px;
+      overflow: hidden;
+    }
+
+    .suggestion-item {
+      padding: 11px 16px;
+      font-size: 13px;
+      cursor: pointer;
+      border-bottom: 1px solid #f3f4f6;
+      display: flex;
+      gap: 10px;
+      align-items: center;
+    }
+    .suggestion-item:last-child { border-bottom: none; }
+    .suggestion-item:hover { background: #f9fafb; }
+    .suggestion-icon { font-size: 16px; flex-shrink: 0; }
+    .suggestion-name { font-weight: 600; color: #111; }
+    .suggestion-address { font-size: 11px; color: #6b7280; margin-top: 2px; }
+
+    /* POI Detail Card */
+    #poi-detail-card {
+      position: fixed;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: white;
+      border-radius: 16px;
+      box-shadow: 0 8px 32px rgba(0,0,0,0.25);
+      padding: 20px;
+      z-index: 1300;
+      width: 320px;
+      max-width: calc(100vw - 40px);
+      pointer-events: auto;
+    }
+    #poi-detail-card.hidden { display: none !important; }
+
+    .poi-card-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-start;
+      margin-bottom: 12px;
+    }
+    .poi-card-name {
+      font-size: 17px;
+      font-weight: 700;
+      color: #111;
+      flex: 1;
+      margin-right: 10px;
+    }
+    .poi-card-close {
+      background: #f3f4f6;
+      border: none;
+      border-radius: 50%;
+      width: 28px;
+      height: 28px;
+      font-size: 14px;
+      cursor: pointer;
+      flex-shrink: 0;
+    }
+    .poi-card-address {
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 16px;
+      line-height: 1.5;
+    }
+    .poi-card-propose-btn {
+      width: 100%;
+      padding: 12px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: opacity 0.2s;
+    }
+    .poi-card-propose-btn:hover { opacity: 0.9; }
+    .poi-card-propose-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    /* Approval Toast */
+    #approval-toast {
+      position: fixed;
+      top: 80px;
+      left: 50%;
+      transform: translateX(-50%) translateY(-20px);
+      background: #10b981;
+      color: white;
+      padding: 14px 28px;
+      border-radius: 30px;
+      font-size: 15px;
+      font-weight: 700;
+      box-shadow: 0 4px 20px rgba(16,185,129,0.4);
+      z-index: 2000;
+      opacity: 0;
+      transition: opacity 0.3s ease, transform 0.3s ease;
+      pointer-events: none;
+      white-space: nowrap;
+    }
+    #approval-toast.show {
+      opacity: 1;
+      transform: translateX(-50%) translateY(0);
+    }
+
+    /* Mobile */
+    @media (max-width: 768px) {
+      html, body { height: 100%; overflow: hidden; }
+      #setup-panel {
+        padding: 15px;
+        padding-bottom: 20px;
+        width: 95%;
+        max-height: 95vh;
+        max-height: 95dvh;
+        height: auto;
+        border-radius: 8px;
+        top: 50%;
+        transform: translate(-50%, -50%);
+        overflow-y: auto;
+        overflow-x: hidden;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior: contain;
+      }
+      #setup-panel h2 { font-size: 20px; margin-bottom: 8px; }
+      #setup-panel p { font-size: 13px; margin-bottom: 10px; line-height: 1.4; }
+      .intro-text { display: none; }
+      .input-group { margin-bottom: 8px; }
+      .input-group label { font-size: 12px; margin-bottom: 3px; }
+      .input-group input,
+      .input-group select { padding: 8px !important; font-size: 13px !important; }
+      .input-group small { font-size: 11px !important; }
+      .location-status { padding: 8px; margin-bottom: 8px; }
+      .status-icon { font-size: 20px !important; }
+      .status-text { font-size: 14px !important; }
+      .status-details { font-size: 11px !important; }
+      .button-group { gap: 6px; margin-top: 8px; margin-bottom: 8px; }
+      .btn { padding: 9px; font-size: 13px; }
+      .btn-retry { padding: 6px 12px; font-size: 12px; }
+      .map-picker-banner { padding: 15px 20px; gap: 15px; top: 10px; }
+      .map-picker-title { font-size: 16px; margin-bottom: 3px; }
+      .map-picker-subtitle { font-size: 12px; }
+      .btn-close-picker { padding: 8px 16px; font-size: 13px; }
+      #simulation-controls { bottom: 10px; right: 10px; left: 10px; }
+      .sim-panel { min-width: unset; }
+      .sim-btn { font-size: 11px; padding: 4px 6px; }
+      #back-to-setup-btn { left: 5px; width: 36px; height: 36px; font-size: 14px; }
+      #debug-panel { top: 95px; right: 5px; padding: 8px 10px; font-size: 10px; gap: 10px; }
+      .debug-item { gap: 5px; }
+      .debug-key { font-size: 9px; }
+      .debug-value { font-size: 11px; }
+      #passenger-search-ui { top: 10px; width: calc(100vw - 20px); }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <div id="nav-ui"></div>
+
+  <!-- Back to Setup Button -->
+  <button id="back-to-setup-btn" class="hidden" onclick="backToSetup()" title="Back to Setup">🏠</button>
+
+  <!-- Debug Panel -->
+  <div id="debug-panel" class="hidden">
+    <div class="debug-item">
+      <span class="debug-key">Directions:</span>
+      <span class="debug-value" id="directions-api-count">0</span>
+    </div>
+    <div class="debug-item">
+      <span class="debug-key">Map Matching:</span>
+      <span class="debug-value" id="mapmatching-api-count">0</span>
+    </div>
+  </div>
+
+  <!-- ── Passenger Search UI (shown during navigation) ── -->
+  <div id="passenger-search-ui" class="hidden">
+    <input
+      id="passenger-search-box"
+      type="text"
+      placeholder="🔍  Search for places along the route..."
+      autocomplete="off"
+    />
+    <div id="search-suggestions" class="hidden"></div>
+  </div>
+
+  <!-- POI Detail Card -->
+  <div id="poi-detail-card" class="hidden">
+    <div class="poi-card-header">
+      <div class="poi-card-name" id="poi-card-name">—</div>
+      <button class="poi-card-close" onclick="closePoiCard()">✕</button>
+    </div>
+    <div class="poi-card-address" id="poi-card-address">—</div>
+    <button class="poi-card-propose-btn" id="poi-propose-btn" onclick="proposeToDriver()">
+      📍 Propose to Driver
+    </button>
+  </div>
+
+  <!-- Approval Toast -->
+  <div id="approval-toast">✅ Approved! Destination updated.</div>
+
+  <div id="setup-panel">
+    <h2>🧭 Turn-by-Turn Navigation</h2>
+    <p class="intro-text">Enter your destination to start navigation. Your current location will be used as the starting point.</p>
+
+    <!-- Location Status -->
+    <div class="location-status loading" id="location-status">
+      <div class="status-header">
+        <div class="status-icon spinning" id="status-icon">⟳</div>
+        <div class="status-text" id="status-text">Getting your location...</div>
+      </div>
+      <div class="status-details" id="status-details">
+        This may take a few seconds. Please allow location permissions if prompted.
+      </div>
+    </div>
+
+    <div class="input-group">
+      <label>Navigation Profile</label>
+      <select id="profile-select" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+        <option value="mapbox.tmp.valhalla-zenrin/driving-traffic">🚗 Driving (with traffic)</option>
+        <option value="mapbox.tmp.valhalla-zenrin/walking">🚶 Walking</option>
+        <option value="mapbox.tmp.valhalla-zenrin/cycling">🚴 Cycling</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>Language</label>
+      <select id="language-select" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+        <option value="en">🇺🇸 English</option>
+        <option value="ja">🇯🇵 Japanese</option>
+      </select>
+    </div>
+
+    <div class="input-group">
+      <label>Destination Coordinates</label>
+      <input type="text" id="destination-input" placeholder="e.g., 139.7671,35.6812 (Tokyo Station)" />
+    </div>
+
+    <div class="button-group" style="margin-bottom:15px;">
+      <button class="btn btn-secondary" style="flex:1;" onclick="openMapPicker('destination')">🗺️ Pick on Map</button>
+    </div>
+
+    <div class="input-group">
+      <label>Or use quick examples:</label>
+      <select id="example-destinations" style="width:100%;padding:10px;border:2px solid #e5e7eb;border-radius:6px;font-size:14px;box-sizing:border-box;">
+        <option value="">Select a destination...</option>
+        <option value="139.7671,35.6812">Tokyo Station</option>
+        <option value="-122.4194,37.7749">San Francisco</option>
+        <option value="-0.1276,51.5074">London</option>
+        <option value="2.3522,48.8566">Paris</option>
+        <option value="-74.0060,40.7128">New York</option>
+      </select>
+    </div>
+
+    <!-- Simulation Mode -->
+    <div class="input-group" style="display:flex;align-items:center;gap:10px;">
+      <input type="checkbox" id="simulation-mode" style="width:auto;margin:0;" />
+      <label for="simulation-mode" style="margin:0;cursor:pointer;">🎬 Use simulation mode (for testing)</label>
+    </div>
+
+    <!-- Origin input (shown only in simulation mode) -->
+    <div id="origin-group" class="hidden">
+      <div class="input-group" style="margin-top:10px;">
+        <label>Start Coordinates <span style="color:#6b7280;font-weight:400;">(simulation only)</span></label>
+        <input type="text" id="origin-input" placeholder="e.g., 139.7500,35.6700" />
+      </div>
+      <div class="button-group" style="margin-bottom:15px;margin-top:0;">
+        <button class="btn btn-secondary" style="flex:1;" onclick="openMapPicker('origin')">🗺️ Pick on Map</button>
+      </div>
+    </div>
+
+    <div class="button-group">
+      <button class="btn btn-primary" id="start-btn" onclick="startNavigation()" disabled style="width:100%;">
+        ⏳ Waiting for location...
+      </button>
+    </div>
+  </div>
+
+  <!-- Map Picker Overlay -->
+  <div id="map-picker-overlay" class="hidden">
+    <div class="map-picker-banner">
+      <div class="map-picker-text">
+        <div class="map-picker-title" id="map-picker-title">📍 Tap anywhere on the map</div>
+        <div class="map-picker-subtitle" id="map-picker-subtitle">Select your destination</div>
+      </div>
+      <button class="btn-close-picker" onclick="closeMapPicker()">✕ Cancel</button>
+    </div>
+  </div>
+
+  <!-- Simulation Controls -->
+  <div id="simulation-controls" class="hidden">
+    <div class="sim-panel">
+      <div class="sim-header">
+        <span class="sim-title">🎬 Route Simulation</span>
+        <button class="sim-close" onclick="stopSimulation()">✕</button>
+      </div>
+      <div class="sim-body">
+        <div class="sim-info">
+          <span id="sim-progress">0 / 0</span>
+          <span id="sim-speed">Speed: 1x</span>
+        </div>
+        <div class="sim-controls-buttons">
+          <button class="sim-btn" id="sim-play-pause" onclick="toggleSimulation()">▶️ Play</button>
+          <button class="sim-btn" onclick="changeSimSpeed(-1)">🐢 Slower</button>
+          <button class="sim-btn" onclick="changeSimSpeed(1)">🐰 Faster</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ─────────────────────────────────────────────
+    // GLJSLocationPuckController  (unchanged)
+    // ─────────────────────────────────────────────
+    class GLJSLocationPuckController {
+      constructor(map, accessToken, options = {}) {
+        this.map = map;
+        this.accessToken = accessToken;
+        this.config = {
+          animationDuration: options.animationDuration || 1000,
+          mapMatchingRadius: options.mapMatchingRadius || 50,
+          minSpeedThreshold: options.minSpeedThreshold || 0.5,
+          simulationMode: options.simulationMode || false,
+          navigationProfile: options.navigationProfile || 'driving',
+        };
+        this._applyProfileSettings();
+        this.lastLocation = null;
+        this.lastRawLocation = null;
+        this.lastAnimatedLocation = null;
+        this.currentRoute = null;
+        this.currentAnimation = null;
+        this.lastBearing = null;
+        this.mapMatchingApiCount = 0;
+        this.puckMarker = null;
+        this.initializePuck();
+        this.debugMatchedCoordinates = [];
+        this.debugRawGPSCoordinates = [];
+        this.initializeDebugLayer();
+        this.lastMapMatchedLocation = null;
+        this.lastRawGPSForMatching = null;
+        this.minMapMatchDistance = 1;
+      }
+      _applyProfileSettings() {
+        const profile = this.config.navigationProfile.toLowerCase();
+        if (profile.includes('walking')) {
+          this.config.minSpeedThreshold = 1.5;
+        } else if (profile.includes('cycling')) {
+          this.config.minSpeedThreshold = 1.0;
+        } else {
+          this.config.minSpeedThreshold = 0.5;
+        }
+      }
+      initializePuck() {
+        const el = document.createElement('div');
+        el.className = 'location-puck';
+        el.style.cssText = 'width:40px;height:40px;display:flex;align-items:center;justify-content:center;';
+        el.innerHTML = `<svg width="40" height="40" viewBox="0 0 40 40" xmlns="http://www.w3.org/2000/svg">
+          <defs><filter id="glow"><feGaussianBlur stdDeviation="2" result="coloredBlur"/>
+          <feMerge><feMergeNode in="coloredBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+          <circle cx="20" cy="20" r="12" fill="white"/>
+          <circle cx="20" cy="20" r="10" fill="#4285F4"/>
+          <path d="M 20 10 L 26 22 L 20 18 L 14 22 Z" fill="white"/></svg>`;
+        this.puckMarker = new mapboxgl.Marker({ element: el, rotationAlignment: 'map', pitchAlignment: 'map' })
+          .setLngLat([0, 0]).addTo(this.map);
+      }
+      initializeDebugLayer() {
+        const add = () => {
+          if (!this.map.getSource('debug-matched-coords')) {
+            this.map.addSource('debug-matched-coords', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            this.map.addLayer({ id: 'debug-matched-coords-layer', type: 'circle', source: 'debug-matched-coords',
+              paint: { 'circle-radius': 6, 'circle-color': '#FF0000', 'circle-opacity': 0.7, 'circle-stroke-width': 2, 'circle-stroke-color': '#FFFFFF' } });
+          }
+          if (!this.map.getSource('debug-raw-gps-coords')) {
+            this.map.addSource('debug-raw-gps-coords', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+            this.map.addLayer({ id: 'debug-raw-gps-coords-layer', type: 'circle', source: 'debug-raw-gps-coords',
+              paint: { 'circle-radius': 4, 'circle-color': '#0000FF', 'circle-opacity': 0.6, 'circle-stroke-width': 1, 'circle-stroke-color': '#FFFFFF' } });
+          }
+        };
+        this.map.loaded() ? add() : this.map.on('load', add);
+      }
+      addDebugMatchedCoordinate(lng, lat) {
+        this.debugMatchedCoordinates.push([lng, lat]);
+        const src = this.map.getSource('debug-matched-coords');
+        if (src) src.setData({ type: 'FeatureCollection', features: this.debugMatchedCoordinates.map(c => ({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} })) });
+      }
+      addDebugRawGPSCoordinate(lng, lat) {
+        this.debugRawGPSCoordinates.push([lng, lat]);
+        const src = this.map.getSource('debug-raw-gps-coords');
+        if (src) src.setData({ type: 'FeatureCollection', features: this.debugRawGPSCoordinates.map(c => ({ type: 'Feature', geometry: { type: 'Point', coordinates: c }, properties: {} })) });
+      }
+      async updateLocation(rawGPS) {
+        try {
+          if (!this.isValidGPSUpdate(rawGPS)) return;
+          const rawLocation = { lat: rawGPS.lat, lng: rawGPS.lng, bearing: rawGPS.bearing, speed: rawGPS.speed, accuracy: rawGPS.accuracy };
+          this.addDebugRawGPSCoordinate(rawLocation.lng, rawLocation.lat);
+          const isStationary = false;
+          let distanceSinceLastMatch = Infinity;
+          if (this.lastRawGPSForMatching) {
+            distanceSinceLastMatch = this.haversineDistance(this.lastRawGPSForMatching.lat, this.lastRawGPSForMatching.lng, rawLocation.lat, rawLocation.lng);
+          }
+          const shouldCallMapMatching = distanceSinceLastMatch >= this.minMapMatchDistance;
+          let processedLocation;
+          if (isStationary) {
+            processedLocation = rawLocation;
+          } else if (!shouldCallMapMatching && this.lastMapMatchedLocation) {
+            processedLocation = { ...this.lastMapMatchedLocation, bearing: rawLocation.bearing, speed: rawLocation.speed };
+          } else {
+            processedLocation = await this.mapMatchLocation(rawLocation);
+            this.lastMapMatchedLocation = { lat: processedLocation.lat, lng: processedLocation.lng };
+            this.lastRawGPSForMatching = { lat: rawLocation.lat, lng: rawLocation.lng };
+          }
+          if (this.lastAnimatedLocation) {
+            const distance = this.haversineDistance(this.lastAnimatedLocation.lat, this.lastAnimatedLocation.lng, processedLocation.lat, processedLocation.lng);
+            if (distance >= 2) {
+              const movementBearing = this.calculateBearing(this.lastAnimatedLocation.lat, this.lastAnimatedLocation.lng, processedLocation.lat, processedLocation.lng);
+              processedLocation.bearing = movementBearing;
+              this.lastBearing = movementBearing;
+            } else {
+              processedLocation.bearing = this.lastBearing || processedLocation.bearing;
+            }
+          } else {
+            this.lastBearing = processedLocation.bearing;
+          }
+          if (processedLocation && !isNaN(processedLocation.lat) && !isNaN(processedLocation.lng)) {
+            this.animatePuckToLocation(processedLocation, []);
+            this.lastAnimatedLocation = processedLocation;
+          }
+          this.lastLocation = processedLocation;
+          this.lastRawLocation = rawGPS;
+        } catch (error) {
+          console.error('Error updating location:', error);
+          if (rawGPS.lng && rawGPS.lat) this.puckMarker.setLngLat([rawGPS.lng, rawGPS.lat]);
+        }
+      }
+      isValidGPSUpdate(gps) {
+        if (!gps || !gps.lng || !gps.lat) return false;
+        if (Math.abs(gps.lat) > 90 || Math.abs(gps.lng) > 180) return false;
+        if (this.lastRawLocation) {
+          const distance = this.haversineDistance(this.lastRawLocation.lat, this.lastRawLocation.lng, gps.lat, gps.lng);
+          const timeDelta = (gps.timestamp - this.lastRawLocation.timestamp) / 1000;
+          if (timeDelta > 0 && distance / timeDelta > 200) return false;
+        }
+        return true;
+      }
+      async mapMatchLocation(location) {
+        const coordinates = [];
+        if (this.lastLocation) coordinates.push([this.lastLocation.lng, this.lastLocation.lat]);
+        coordinates.push([location.lng, location.lat]);
+        if (coordinates.length < 2) return location;
+        try {
+          this.mapMatchingApiCount++;
+          const coordinatesStr = coordinates.map(c => c.join(',')).join(';');
+          const url = `https://api.mapbox.com/matching/v5/${this.config.navigationProfile}/${coordinatesStr}?geometries=geojson&radiuses=${Array(coordinates.length).fill(this.config.mapMatchingRadius).join(';')}&steps=false&overview=full&access_token=${this.accessToken}`;
+          const response = await fetch(url);
+          if (!response.ok) throw new Error(`Map matching failed: ${response.status}`);
+          const data = await response.json();
+          if (!data.matchings || data.matchings.length === 0) return location;
+          const matched = data.matchings[0];
+          const matchedCoords = matched.geometry.coordinates;
+          const snappedPoint = this.findClosestPointOnLine(matchedCoords, [location.lng, location.lat]);
+          const matchedBearing = this.calculateBearingFromGeometry(matchedCoords, snappedPoint.index);
+          this.addDebugMatchedCoordinate(snappedPoint.lng, snappedPoint.lat);
+          return { lat: snappedPoint.lat, lng: snappedPoint.lng, bearing: matchedBearing !== null ? matchedBearing : location.bearing, speed: location.speed, accuracy: location.accuracy, isMatched: true, confidence: matched.confidence, matchedGeometry: matchedCoords };
+        } catch (error) {
+          console.warn('Map matching failed, using raw location:', error);
+          return location;
+        }
+      }
+      animatePuckToLocation(targetLocation, keyPoints) {
+        if (this.currentAnimation) cancelAnimationFrame(this.currentAnimation);
+        if (!this.lastLocation) {
+          this.puckMarker.setLngLat([targetLocation.lng, targetLocation.lat]);
+          if (targetLocation.bearing !== undefined) this.puckMarker.setRotation(targetLocation.bearing);
+          return;
+        }
+        const startLocation = this.lastLocation;
+        const distance = this.haversineDistance(startLocation.lat, startLocation.lng, targetLocation.lat, targetLocation.lng);
+        if (distance < 0.1) {
+          if (targetLocation.bearing !== undefined) this.puckMarker.setRotation(targetLocation.bearing);
+          return;
+        }
+        const startTime = performance.now();
+        const duration = this.config.animationDuration;
+        const fullPath = [startLocation, ...keyPoints, targetLocation];
+        const interpolator = new ConstantVelocityInterpolator(fullPath);
+        const animate = (currentTime) => {
+          const elapsed = currentTime - startTime;
+          const fraction = Math.min(elapsed / duration, 1);
+          const adjustedFraction = interpolator.getInterpolation(fraction);
+          const current = this.interpolateAlongPath(fullPath, adjustedFraction);
+          if (current && !isNaN(current.lng) && !isNaN(current.lat)) {
+            this.puckMarker.setLngLat([current.lng, current.lat]);
+            if (current.bearing !== undefined) this.puckMarker.setRotation(current.bearing);
+          }
+          if (fraction < 1) this.currentAnimation = requestAnimationFrame(animate);
+          else this.currentAnimation = null;
+        };
+        this.currentAnimation = requestAnimationFrame(animate);
+      }
+      setRoute(route) { this.currentRoute = route; this.clearDebugLayers(); }
+      clearRoute() { this.currentRoute = null; }
+      clearDebugLayers() {
+        this.debugMatchedCoordinates = [];
+        this.debugRawGPSCoordinates = [];
+        const m = this.map.getSource('debug-matched-coords');
+        if (m) m.setData({ type: 'FeatureCollection', features: [] });
+        const r = this.map.getSource('debug-raw-gps-coords');
+        if (r) r.setData({ type: 'FeatureCollection', features: [] });
+      }
+      getDebugStats() { return { mapMatchingApiCount: this.mapMatchingApiCount }; }
+      resetDebugStats() { this.mapMatchingApiCount = 0; }
+      haversineDistance(lat1, lng1, lat2, lng2) {
+        const R = 6371000;
+        const φ1 = lat1 * Math.PI / 180, φ2 = lat2 * Math.PI / 180;
+        const Δφ = (lat2 - lat1) * Math.PI / 180, Δλ = (lng2 - lng1) * Math.PI / 180;
+        const a = Math.sin(Δφ/2)**2 + Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+        return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+      }
+      calculateBearing(lat1, lng1, lat2, lng2) {
+        const φ1 = lat1*Math.PI/180, φ2 = lat2*Math.PI/180, Δλ = (lng2-lng1)*Math.PI/180;
+        const y = Math.sin(Δλ)*Math.cos(φ2);
+        const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+        return this.normalizeBearing(Math.atan2(y,x)*180/Math.PI);
+      }
+      calculateBearingFromGeometry(coords, index) {
+        if (coords.length < 2) return null;
+        const idx = Math.min(index, coords.length-2);
+        const [lng1,lat1] = coords[idx], [lng2,lat2] = coords[idx+1];
+        return this.calculateBearing(lat1,lng1,lat2,lng2);
+      }
+      normalizeBearing(b) { b = b%360; if (b<0) b+=360; return b; }
+      shortestAngleDifference(from, to) { let d=to-from; while(d>180)d-=360; while(d<-180)d+=360; return d; }
+      findClosestPointOnLine(lineCoords, point) {
+        const line = turf.lineString(lineCoords), pt = turf.point(point);
+        const nearest = turf.nearestPointOnLine(line, pt, { units: 'meters' });
+        let closestIndex = 0, minDist = Infinity;
+        for (let i=0; i<lineCoords.length; i++) {
+          const d = turf.distance(turf.point(lineCoords[i]), nearest, { units: 'meters' });
+          if (d < minDist) { minDist = d; closestIndex = i; }
+        }
+        return { lng: nearest.geometry.coordinates[0], lat: nearest.geometry.coordinates[1], index: closestIndex, distance: nearest.properties.dist*1000 };
+      }
+      interpolateAlongPath(path, fraction) {
+        if (path.length===0) return null;
+        if (path.length===1) return path[0];
+        if (fraction<=0) return path[0];
+        if (fraction>=1) return path[path.length-1];
+        const distances = [];
+        let totalDistance = 0;
+        for (let i=0; i<path.length-1; i++) {
+          const dist = this.haversineDistance(path[i].lat, path[i].lng, path[i+1].lat, path[i+1].lng);
+          distances.push(dist); totalDistance += dist;
+        }
+        const targetDistance = totalDistance * fraction;
+        let accumulated = 0;
+        for (let i=0; i<distances.length; i++) {
+          if (accumulated + distances[i] >= targetDistance) {
+            const segFrac = (targetDistance - accumulated) / distances[i];
+            return { lng: path[i].lng+(path[i+1].lng-path[i].lng)*segFrac, lat: path[i].lat+(path[i+1].lat-path[i].lat)*segFrac,
+              bearing: path[i].bearing + this.shortestAngleDifference(path[i].bearing||0, path[i+1].bearing||0)*segFrac };
+          }
+          accumulated += distances[i];
+        }
+        return path[path.length-1];
+      }
+    }
+
+    class ConstantVelocityInterpolator {
+      constructor(path) { this.path = path; this.timingPoints = this.calculateTimingPoints(path); }
+      calculateTimingPoints(path) {
+        if (path.length<=1) return [{distance:0,time:0},{distance:0,time:1}];
+        const distances = []; let totalDistance = 0;
+        for (let i=0; i<path.length-1; i++) {
+          const dist = this.haversineDistance(path[i].lat, path[i].lng, path[i+1].lat, path[i+1].lng);
+          if (dist>0) { distances.push(dist); totalDistance+=dist; }
+        }
+        if (totalDistance===0) return [{distance:0,time:0},{distance:0,time:1}];
+        const points = [{distance:0,time:0}]; let acc = 0;
+        for (let i=0; i<distances.length; i++) { acc+=distances[i]; points.push({distance:acc,time:acc/totalDistance}); }
+        return points;
+      }
+      getInterpolation(inputFraction) {
+        if (inputFraction<=0) return 0; if (inputFraction>=1) return 1;
+        for (let i=0; i<this.timingPoints.length-1; i++) {
+          const p1=this.timingPoints[i], p2=this.timingPoints[i+1];
+          if (inputFraction>=p1.time && inputFraction<=p2.time) {
+            const sf = (inputFraction-p1.time)/(p2.time-p1.time);
+            return p1.time+(p2.time-p1.time)*sf;
+          }
+        }
+        return inputFraction;
+      }
+      haversineDistance(lat1,lng1,lat2,lng2) {
+        const R=6371000, φ1=lat1*Math.PI/180, φ2=lat2*Math.PI/180;
+        const Δφ=(lat2-lat1)*Math.PI/180, Δλ=(lng2-lng1)*Math.PI/180;
+        const a=Math.sin(Δφ/2)**2+Math.cos(φ1)*Math.cos(φ2)*Math.sin(Δλ/2)**2;
+        return R*2*Math.atan2(Math.sqrt(a),Math.sqrt(1-a));
+      }
+    }
+
+    // ─────────────────────────────────────────────
+    // TurnByTurnNavigation  (instruction banner removed)
+    // ─────────────────────────────────────────────
+    class TurnByTurnNavigation {
+      constructor(map, options = {}) {
+        this.map = map;
+        this.accessToken = options.accessToken || mapboxgl.accessToken;
+        this.config = {
+          advanceInstructionDistance: options.advanceInstructionDistance || 50,
+          rerouteDelay: options.rerouteDelay || 3000,
+          voiceEnabled: options.voiceEnabled !== false,
+          cameraFollowEnabled: options.cameraFollowEnabled !== false,
+          profile: options.profile || 'mapbox/driving-traffic',
+          language: options.language || 'ja',
+          cameraPitch: options.cameraPitch || 60,
+          cameraZoom: options.cameraZoom || 17,
+          minMovementDistance: options.minMovementDistance || 10,
+          minMovementSpeed: options.minMovementSpeed || 0.5,
+          maxAccuracy: options.maxAccuracy || 50,
+          simulationMode: options.simulationMode || false,
+        };
+        this.state = {
+          isNavigating: false, currentRoute: null, currentStep: 0,
+          userLocation: null, processedLocation: null,
+          distanceToNextStep: null, distanceRemaining: null, durationRemaining: null,
+          isOffRoute: false, lastRerouteTime: 0, bearing: 0,
+          userTouchedMap: false, lastUserInteraction: 0,
+          isProgrammaticMovement: false, offRouteConfirmStartTime: null, isCheckingOffRoute: false,
+        };
+        this.watchId = null;
+        this.locationAccuracy = null;
+        this.locationHistory = [];
+        this.maxHistoryPoints = 5;
+        this.lastMapMatchTime = 0;
+        this.mapMatchingDebounce = 1500;
+        this.isMapMatching = false;
+        this.lastProcessedLocation = null;
+        this.synth = window.speechSynthesis;
+        this.lastSpokenInstruction = null;
+        this.voicesLoaded = false;
+        this.speechPrimed = false;
+        this._loadVoices();
+        this.puckController = new GLJSLocationPuckController(map, this.accessToken, {
+          predictionMillis: 1000, animationDuration: 1000, numKeyPoints: 15,
+          mapMatchingRadius: 50, maxTurnRatePerSecond: 90, velocitySmoothingFactor: 0.3,
+          navigationProfile: this.config.profile
+        });
+        this.callbacks = {
+          onRouteUpdate: options.onRouteUpdate || null, onProgressUpdate: options.onProgressUpdate || null,
+          onInstructionAdvance: options.onInstructionAdvance || null, onOffRoute: options.onOffRoute || null,
+          onArrival: options.onArrival || null, onError: options.onError || null,
+        };
+        this.directionsApiCount = 0;
+        this._initializeLayers();
+        this._setupUserInteractionListeners();
+      }
+      _getOffRouteThresholds() {
+        const p = this.config.profile.toLowerCase();
+        if (p.includes('walking')) return { snapZone:15, confirmZone:30, immediateReroute:30 };
+        if (p.includes('cycling')) return { snapZone:20, confirmZone:50, immediateReroute:50 };
+        return { snapZone:30, confirmZone:70, immediateReroute:70 };
+      }
+      _setupUserInteractionListeners() {
+        const mark = (e) => {
+          if (this.state.isProgrammaticMovement) return;
+          this.config.cameraFollowEnabled = false;
+          this.state.userTouchedMap = true;
+          this.state.lastUserInteraction = Date.now();
+        };
+        const c = this.map.getContainer();
+        c.addEventListener('touchstart', mark, true);
+        c.addEventListener('mousedown', mark, true);
+        this.map.on('dragstart', mark); this.map.on('pitchstart', mark);
+        this.map.on('rotatestart', mark); this.map.on('zoomstart', mark); this.map.on('wheel', mark);
+      }
+      _initializeLayers() {
+        if (!this.map.getSource('nav-route')) {
+          this.map.addSource('nav-route', { type: 'geojson', data: { type: 'FeatureCollection', features: [] } });
+          this.map.addLayer({ id: 'nav-route-casing', type: 'line', source: 'nav-route', paint: { 'line-color': '#2d5f99', 'line-width': 12, 'line-opacity': 0.4 } });
+          this.map.addLayer({ id: 'nav-route-line', type: 'line', source: 'nav-route', paint: { 'line-color': '#4882c5', 'line-width': 8 } });
+        }
+      }
+      _loadVoices() {
+        if (!this.synth) return;
+        const load = () => { const v = this.synth.getVoices(); if (v.length>0) this.voicesLoaded = true; };
+        load();
+        if (this.synth.onvoiceschanged !== undefined) this.synth.onvoiceschanged = load;
+      }
+      primeSpeechSynthesis() {
+        if (!this.synth || this.speechPrimed) return;
+        try {
+          const u = new SpeechSynthesisUtterance(''); u.volume=0; u.rate=10;
+          this.synth.speak(u); this.speechPrimed = true;
+        } catch(e) {}
+      }
+      async startNavigation(origin, destination) {
+        try {
+          this.state.isNavigating = true; this.state.currentStep = 0;
+          const route = await this._fetchRoute(origin, destination);
+          this.state.currentRoute = route;
+          this.puckController.setRoute(route.geometry);
+          this._displayRoute(route);
+          const originLocation = Array.isArray(origin) ? { lng: origin[0], lat: origin[1] } : origin;
+          this.state.userLocation = originLocation;
+          this.enableCameraFollow();
+          if (!this.config.simulationMode) this._startLocationTracking();
+          this._emit('onRouteUpdate', { route });
+          if (route.legs[0].steps.length > 0) this._speakInstruction(route.legs[0].steps[0].maneuver.instruction);
+          return route;
+        } catch (error) {
+          this._emit('onError', { error, message: 'Failed to start navigation' }); throw error;
+        }
+      }
+      async _fetchRoute(origin, destination) {
+        const originStr = Array.isArray(origin) ? origin.join(',') : `${origin.lng},${origin.lat}`;
+        const destStr = Array.isArray(destination) ? destination.join(',') : `${destination.lng},${destination.lat}`;
+        const url = `https://api.mapbox.com/directions/v5/${this.config.profile}/${originStr};${destStr}`;
+        const params = new URLSearchParams({ access_token: this.accessToken, geometries: 'polyline6', overview: 'full', steps: 'true', banner_instructions: 'true', voice_instructions: 'true', alternatives: 'false', language: this.config.language });
+        this.directionsApiCount++;
+        const response = await fetch(`${url}?${params}`);
+        const data = await response.json();
+        if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) throw new Error('No route found');
+        const route = data.routes[0];
+        route.geometry = this._decodePolyline(route.geometry);
+        if (route.legs) route.legs.forEach(leg => { if (leg.steps) leg.steps.forEach(step => { if (step.geometry) step.geometry = this._decodePolyline(step.geometry); }); });
+        return route;
+      }
+      _decodePolyline(encoded) {
+        if (typeof encoded === 'object') return encoded;
+        const coordinates = []; let index=0, lat=0, lng=0;
+        const factor = Math.pow(10,6);
+        while (index < encoded.length) {
+          let byte, shift=0, result=0;
+          do { byte=encoded.charCodeAt(index++)-63; result|=(byte&0x1f)<<shift; shift+=5; } while(byte>=0x20);
+          lat += ((result&1)?~(result>>1):(result>>1));
+          shift=0; result=0;
+          do { byte=encoded.charCodeAt(index++)-63; result|=(byte&0x1f)<<shift; shift+=5; } while(byte>=0x20);
+          lng += ((result&1)?~(result>>1):(result>>1));
+          coordinates.push([lng/factor, lat/factor]);
+        }
+        return { type: 'LineString', coordinates };
+      }
+      _displayRoute(route) {
+        this.map.getSource('nav-route').setData({ type: 'Feature', geometry: route.geometry });
+        const coords = route.geometry.coordinates;
+        const bounds = coords.reduce((b,c) => b.extend(c), new mapboxgl.LngLatBounds(coords[0],coords[0]));
+        this.map.fitBounds(bounds, { padding: 100, duration: 1000 });
+      }
+      _startLocationTracking() {
+        if (!navigator.geolocation) { this._emit('onError', { message: 'Geolocation not supported' }); return; }
+        this.watchId = navigator.geolocation.watchPosition(
+          (p) => this._handleLocationUpdate(p),
+          (e) => this._emit('onError', { error: e, message: 'Location error' }),
+          { enableHighAccuracy: true, maximumAge: 0, timeout: 5000 }
+        );
+      }
+      _shouldProcessLocationUpdate(position) {
+        if (this.config.simulationMode) return true;
+        const userLocation = { lng: position.coords.longitude, lat: position.coords.latitude };
+        if (position.coords.accuracy > this.config.maxAccuracy) return false;
+        if (!this.lastProcessedLocation) return true;
+        const distanceMoved = turf.distance(turf.point([this.lastProcessedLocation.lng, this.lastProcessedLocation.lat]), turf.point([userLocation.lng, userLocation.lat]), { units: 'meters' });
+        const isMovingFast = position.coords.speed !== null && position.coords.speed >= this.config.minMovementSpeed;
+        return distanceMoved >= this.config.minMovementDistance || isMovingFast;
+      }
+      async _handleLocationUpdate(position) {
+        if (!this.state.isNavigating || !this.state.currentRoute) return;
+        const userLocation = { lng: position.coords.longitude, lat: position.coords.latitude, timestamp: position.timestamp };
+        this.state.userLocation = userLocation;
+        this.locationAccuracy = position.coords.accuracy;
+        if (position.coords.heading !== null && position.coords.heading >= 0) this.state.bearing = position.coords.heading;
+        try {
+          await this.puckController.updateLocation({ lat: userLocation.lat, lng: userLocation.lng, bearing: position.coords.heading || this.state.bearing, speed: position.coords.speed || 0, accuracy: position.coords.accuracy, timestamp: position.timestamp });
+        } catch (error) { console.error('Puck controller update failed:', error); }
+        if (!this._shouldProcessLocationUpdate(position)) return;
+        this.lastProcessedLocation = userLocation;
+        const processedLocation = this.puckController.lastLocation;
+        if (!processedLocation) {
+          this.state.processedLocation = { lng: userLocation.lng, lat: userLocation.lat, distance: 0 };
+        } else {
+          this.state.processedLocation = { lng: processedLocation.lng, lat: processedLocation.lat, distance: 0 };
+          if (processedLocation.bearing !== undefined) this.state.bearing = processedLocation.bearing;
+        }
+        const distanceFromRoute = this._checkDistanceFromRoute(userLocation);
+        const thresholds = this._getOffRouteThresholds();
+        if (distanceFromRoute > thresholds.immediateReroute) {
+          if (!this.state.isOffRoute) this._handleOffRoute();
+          this.state.isOffRoute = true;
+        } else { this.state.isOffRoute = false; }
+        this._calculateProgress(this.state.processedLocation);
+        this._checkInstructionAdvancement();
+        if (this.config.cameraFollowEnabled) this._updateCamera(this.state.processedLocation);
+        this._emit('onProgressUpdate', { location: userLocation, processedLocation: this.state.processedLocation, currentStep: this.state.currentStep, distanceToNextStep: this.state.distanceToNextStep, distanceRemaining: this.state.distanceRemaining, durationRemaining: this.state.durationRemaining, isOffRoute: this.state.isOffRoute });
+      }
+      _checkDistanceFromRoute(location) {
+        const routeLine = turf.lineString(this.state.currentRoute.geometry.coordinates);
+        const point = turf.point([location.lng, location.lat]);
+        const nearest = turf.nearestPointOnLine(routeLine, point);
+        return turf.distance(point, nearest, { units: 'meters' });
+      }
+      _calculateProgress(snapped) {
+        const steps = this.state.currentRoute.legs[0].steps;
+        const currentStep = steps[this.state.currentStep];
+        if (!currentStep) return;
+        const userPoint = turf.point([snapped.lng, snapped.lat]);
+        const stepEndCoord = currentStep.geometry.coordinates[currentStep.geometry.coordinates.length-1];
+        this.state.distanceToNextStep = turf.distance(userPoint, turf.point(stepEndCoord), { units: 'meters' });
+        let remaining = this.state.distanceToNextStep;
+        for (let i=this.state.currentStep+1; i<steps.length; i++) remaining += steps[i].distance;
+        this.state.distanceRemaining = remaining;
+        this.state.durationRemaining = remaining * (this.state.currentRoute.duration / this.state.currentRoute.distance);
+      }
+      _checkInstructionAdvancement() {
+        if (this.state.distanceToNextStep < this.config.advanceInstructionDistance) this._advanceToNextInstruction();
+      }
+      _advanceToNextInstruction() {
+        const steps = this.state.currentRoute.legs[0].steps;
+        if (this.state.currentStep >= steps.length-1) { this._handleArrival(); return; }
+        this.state.currentStep++;
+        const nextStep = steps[this.state.currentStep];
+        this._speakInstruction(nextStep.maneuver.instruction);
+        this._emit('onInstructionAdvance', { step: this.state.currentStep, instruction: nextStep.maneuver.instruction, distance: nextStep.distance, duration: nextStep.duration });
+      }
+      _handleOffRoute() {
+        const now = Date.now();
+        if (now - this.state.lastRerouteTime < this.config.rerouteDelay) return;
+        this.state.lastRerouteTime = now;
+        this._emit('onOffRoute', { location: this.state.userLocation });
+        this._reroute();
+      }
+      async _reroute() {
+        if (!this.state.userLocation || !this.state.currentRoute) return;
+        try {
+          const destination = this.state.currentRoute.geometry.coordinates[this.state.currentRoute.geometry.coordinates.length-1];
+          const newRoute = await this._fetchRoute(this.state.userLocation, destination);
+          this.state.currentRoute = newRoute; this.state.currentStep = 0;
+          this._displayRoute(newRoute); this.enableCameraFollow();
+          this._emit('onRouteUpdate', { route: newRoute, isReroute: true });
+          if (newRoute.legs[0].steps.length > 0) this._speakInstruction('Rerouting. ' + newRoute.legs[0].steps[0].maneuver.instruction);
+        } catch (error) { this._emit('onError', { error, message: 'Rerouting failed' }); }
+      }
+      _handleArrival() {
+        this._speakInstruction('You have arrived at your destination');
+        this._emit('onArrival', { location: this.state.userLocation, route: this.state.currentRoute });
+      }
+      _updateCamera(location) {
+        if (!this.config.cameraFollowEnabled) return;
+        this.state.isProgrammaticMovement = true;
+        const dur = this.puckController.config.animationDuration || 1000;
+        this.map.easeTo({ center: [location.lng, location.lat], zoom: this.config.cameraZoom, pitch: this.config.cameraPitch, bearing: this.state.bearing, duration: dur, essential: false });
+        setTimeout(() => { this.state.isProgrammaticMovement = false; }, dur+100);
+      }
+      enableCameraFollow() {
+        this.config.cameraFollowEnabled = true; this.state.userTouchedMap = false;
+        this.state.isProgrammaticMovement = true;
+        if (this.state.processedLocation) this._updateCamera(this.state.processedLocation);
+      }
+      _speakInstruction(text) {
+        if (!this.config.voiceEnabled || !this.synth) return;
+        if (text === this.lastSpokenInstruction) return;
+        this.lastSpokenInstruction = text;
+        if (!this.voicesLoaded) { setTimeout(() => this._speakInstruction(text), 100); return; }
+        this.synth.cancel();
+        const utterance = new SpeechSynthesisUtterance(text);
+        utterance.rate=1.0; utterance.pitch=1.0; utterance.volume=1.0;
+        utterance.lang = this.config.language === 'ja' ? 'ja-JP' : 'en-US';
+        const voices = this.synth.getVoices();
+        const matchingVoice = voices.find(v => v.lang.startsWith(this.config.language));
+        if (matchingVoice) utterance.voice = matchingVoice;
+        utterance.onerror = (e) => { if (e.error==='synthesis-failed'||e.error==='audio-busy') { setTimeout(() => { this.synth.cancel(); this.synth.speak(utterance); }, 100); } };
+        this.synth.speak(utterance);
+      }
+      setSimulationMode(enabled) { this.config.simulationMode = enabled; this.puckController.config.simulationMode = enabled; }
+      stopNavigation() {
+        this.state.isNavigating = false;
+        if (this.watchId !== null) { navigator.geolocation.clearWatch(this.watchId); this.watchId = null; }
+        if (this.synth) this.synth.cancel();
+        this.speechPrimed = false; this.lastSpokenInstruction = null;
+        this.puckController.clearRoute();
+        this.map.getSource('nav-route').setData({ type: 'FeatureCollection', features: [] });
+      }
+      getState() { return { ...this.state }; }
+      getCurrentInstruction() {
+        if (!this.state.currentRoute) return null;
+        return this.state.currentRoute.legs[0].steps[this.state.currentStep];
+      }
+      getDebugStats() {
+        const p = this.puckController.getDebugStats();
+        return { api: { directions: this.directionsApiCount, mapMatching: p.mapMatchingApiCount }, processing: {} };
+      }
+      resetDebugStats() { this.directionsApiCount = 0; this.puckController.resetDebugStats(); }
+      _emit(eventName, data) { if (this.callbacks[eventName]) this.callbacks[eventName](data); }
+    }
+
+    // ─────────────────────────────────────────────
+    // NavigationUI  (instruction banner removed)
+    // ─────────────────────────────────────────────
+    class NavigationUI {
+      constructor(containerId, navigation) {
+        this.container = document.getElementById(containerId);
+        this.navigation = navigation;
+        this.arrivalMessageShown = false;
+        if (!this.container) return;
+        this._createUI();
+        this._attachEventListeners();
+      }
+      _createUI() {
+        this.container.innerHTML = `
+          <div class="nav-ui-container">
+            <div class="nav-controls">
+              <button id="nav-stop-btn" class="nav-button nav-button-danger" title="Stop Navigation">✕</button>
+              <button id="nav-voice-toggle" class="nav-button nav-button-secondary" title="Toggle Voice">🔊</button>
+              <button id="nav-recenter" class="nav-button nav-button-secondary" title="Recenter">📍</button>
+            </div>
+            <div class="nav-info-panel">
+              <div class="nav-info-item">
+                <div class="nav-info-label">Total Distance</div>
+                <div class="nav-info-value" id="nav-distance-remaining">--</div>
+              </div>
+              <div class="nav-info-item">
+                <div class="nav-info-label">Time Remaining</div>
+                <div class="nav-info-value" id="nav-time-remaining">--</div>
+              </div>
+              <div class="nav-info-item">
+                <div class="nav-info-label">Arrival</div>
+                <div class="nav-info-value" id="nav-eta">--</div>
+              </div>
+            </div>
+            <div id="nav-status" class="nav-status hidden">
+              <div id="nav-status-text"></div>
+            </div>
+          </div>`;
+        this._injectStyles();
+      }
+      _injectStyles() {
+        if (document.getElementById('nav-ui-styles')) return;
+        const styles = document.createElement('style');
+        styles.id = 'nav-ui-styles';
+        styles.textContent = `
+          .nav-ui-container { position:relative; z-index:1000; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif; }
+          .nav-controls { position:fixed; left:10px; top:50%; transform:translateY(-50%); display:flex; flex-direction:column; gap:8px; z-index:1001; }
+          .nav-button { width:40px; height:40px; padding:0; border:none; border-radius:8px; font-size:16px; cursor:pointer; transition:all 0.2s; display:flex; align-items:center; justify-content:center; box-shadow:0 2px 8px rgba(0,0,0,0.2); }
+          .nav-info-panel { position:fixed; top:15px; right:10px; background:rgba(128,128,128,0.8); color:white; padding:12px 16px; border-radius:12px; box-shadow:0 2px 12px rgba(0,0,0,0.2); z-index:1000; display:flex; gap:20px; }
+          .nav-info-item { display:flex; flex-direction:column; align-items:flex-end; }
+          .nav-info-label { font-size:11px; opacity:0.9; font-weight:500; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:3px; }
+          .nav-info-value { font-size:16px; font-weight:700; }
+          .nav-button-danger { background:#ef4444; color:white; }
+          .nav-button-danger:hover { background:#dc2626; }
+          .nav-button-secondary { background:#f3f4f6; color:#374151; }
+          .nav-button-secondary:hover { background:#e5e7eb; }
+          .nav-button-secondary.active { background:#667eea; color:white; }
+          .nav-status { position:fixed; top:80px; left:10px; right:10px; background:#fbbf24; color:#92400e; padding:12px; border-radius:8px; font-weight:600; text-align:center; z-index:1000; }
+          .nav-status.hidden { display:none; }
+          .nav-status.error { background:#ef4444; color:white; }
+          .nav-status.success { background:#10b981; color:white; }
+          @media (max-width:768px) {
+            .nav-controls { left:5px; }
+            .nav-button { width:36px; height:36px; font-size:14px; }
+            .nav-info-panel { top:10px; right:5px; padding:10px 12px; gap:15px; }
+            .nav-info-label { font-size:9px; }
+            .nav-info-value { font-size:14px; }
+            .nav-status { top:70px; left:5px; right:5px; padding:10px; font-size:13px; }
+          }`;
+        document.head.appendChild(styles);
+}
+      _attachEventListeners() {
+        const stopBtn = document.getElementById('nav-stop-btn');
+        const voiceToggle = document.getElementById('nav-voice-toggle');
+        const recenterBtn = document.getElementById('nav-recenter');
+        if (stopBtn) {
+          stopBtn.addEventListener('click', () => {
+            this.navigation.stopNavigation();
+            this.hide();
+          });
+        }
+        if (voiceToggle) {
+          voiceToggle.addEventListener('click', () => {
+            this.navigation.config.voiceEnabled = !this.navigation.config.voiceEnabled;
+            voiceToggle.classList.toggle('active');
+            voiceToggle.textContent = this.navigation.config.voiceEnabled ? '🔊' : '🔇';
+            if (this.navigation.config.voiceEnabled) this.navigation.primeSpeechSynthesis();
+          });
+        }
+        if (recenterBtn) {
+          recenterBtn.addEventListener('click', () => {
+            this.navigation.enableCameraFollow();
+          });
+        }
+        this.navigation.callbacks.onProgressUpdate = (data) => this._updateProgress(data);
+        this.navigation.callbacks.onInstructionAdvance = (data) => this._updateInstruction(data);
+        this.navigation.callbacks.onOffRoute = () => this._showStatus('Off route, recalculating...', 'warning');
+        this.navigation.callbacks.onRouteUpdate = (data) => {
+          if (data.isReroute) this._showStatus('Route updated', 'success', 2000);
+        };
+        this.navigation.callbacks.onArrival = () => {
+          if (!this.arrivalMessageShown) {
+            this._showStatus('You have arrived!', 'success', 3000);
+            this.arrivalMessageShown = true;
+          }
+        };
+        this.navigation.callbacks.onError = (data) => {
+          this._showStatus('Error: ' + data.message, 'error', 3000);
+        };
+      }
+      _updateProgress(data) {
+        const distRemainingEl = document.getElementById('nav-distance-remaining');
+        if (distRemainingEl) distRemainingEl.textContent = this._formatDistance(data.distanceRemaining);
+        const timeRemainingEl = document.getElementById('nav-time-remaining');
+        if (timeRemainingEl) timeRemainingEl.textContent = this._formatDuration(data.durationRemaining);
+        const etaEl = document.getElementById('nav-eta');
+        if (etaEl) {
+          const eta = new Date(Date.now() + data.durationRemaining * 1000);
+          etaEl.textContent = eta.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      }
+      _updateInstruction(data) {
+        // instruction banner removed — voice only
+      }
+      _showStatus(message, type = 'warning', duration = null) {
+        const statusEl = document.getElementById('nav-status');
+        const statusTextEl = document.getElementById('nav-status-text');
+        if (statusEl && statusTextEl) {
+          statusEl.className = `nav-status ${type}`;
+          statusTextEl.textContent = message;
+          statusEl.classList.remove('hidden');
+          if (duration) setTimeout(() => statusEl.classList.add('hidden'), duration);
+        }
+      }
+      _formatDistance(meters) {
+        if (meters === null || meters === undefined) return '--';
+        return meters < 1000 ? `${Math.round(meters)} m` : `${(meters / 1000).toFixed(1)} km`;
+      }
+      _formatDuration(seconds) {
+        if (seconds === null || seconds === undefined) return '--';
+        const hours = Math.floor(seconds / 3600);
+        const minutes = Math.floor((seconds % 3600) / 60);
+        return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+      }
+      show() { this.container.style.display = 'block'; this.arrivalMessageShown = false; }
+      hide() { this.container.style.display = 'none'; }
+    }
+
+// ─────────────────────────────────────────────
+  // PassengerSearch  (新規)
+  // ─────────────────────────────────────────────
+  class PassengerSearch {
+    constructor(map, accessToken, navigation) {
+      this.map = map;
+      this.accessToken = accessToken;
+      this.navigation = navigation;
+      this.sessionToken = this._generateSessionToken();
+      this.searchTimeout = null;
+      this.suggestions = [];
+      this.currentPoi = null;
+      this.poiMarker = null;
+
+      // POI symbol layer用データ
+      this.poiFeatures = [];
+
+      this._initLayers();
+      this._attachEvents();
+    }
+
+    _generateSessionToken() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
+        const r = Math.random() * 16 | 0;
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+      });
+    }
+
+    // ルートからbboxを生成（buffer 5km）
+    _getRouteBbox() {
+      const route = this.navigation.state.currentRoute;
+      if (!route) return null;
+      try {
+        const routeLine = turf.lineString(route.geometry.coordinates);
+        const buffered = turf.buffer(routeLine, 0.5, { units: 'kilometers' }); // 5 → 1 に変更
+        return turf.bbox(buffered);
+      } catch (e) {
+        console.warn('bbox generation failed:', e);
+        return null;
+      }
+    }
+
+    // Symbol layer初期化
+    _initLayers() {
+      const addLayers = () => {
+        if (!this.map.getSource('poi-search-results')) {
+          this.map.addSource('poi-search-results', {
+            type: 'geojson',
+            data: { type: 'FeatureCollection', features: [] }
+          });
+        }
+
+        // アイコン用のimage登録（シンプルな丸マーカー）
+        if (!this.map.hasImage('poi-marker')) {
+          const size = 40;
+          const canvas = document.createElement('canvas');
+          canvas.width = size; canvas.height = size;
+          const ctx = canvas.getContext('2d');
+          ctx.beginPath();
+          ctx.arc(size/2, size/2, size/2 - 2, 0, Math.PI * 2);
+          ctx.fillStyle = '#667eea';
+          ctx.fill();
+          ctx.strokeStyle = 'white';
+          ctx.lineWidth = 3;
+          ctx.stroke();
+          // ピンの先端
+          ctx.beginPath();
+          ctx.moveTo(size/2, size - 4);
+          ctx.lineTo(size/2 - 6, size/2 + 4);
+          ctx.lineTo(size/2 + 6, size/2 + 4);
+          ctx.fillStyle = '#667eea';
+          ctx.fill();
+          const imageData = ctx.getImageData(0, 0, size, size);
+          this.map.addImage('poi-marker', imageData);
+        }
+
+        if (!this.map.getLayer('poi-search-layer')) {
+          this.map.addLayer({
+            id: 'poi-search-layer',
+            type: 'symbol',
+            source: 'poi-search-results',
+            layout: {
+              'icon-image': 'poi-marker',
+              'icon-size': 0.7,
+              'icon-allow-overlap': true,
+              'icon-anchor': 'bottom',
+              'text-field': ['get', 'name'],
+              'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+              'text-size': 12,
+              'text-offset': [0, 0.5],
+              'text-anchor': 'top',
+              'text-allow-overlap': false,
+              'text-optional': true,
+            },
+            paint: {
+              'text-color': '#111',
+              'text-halo-color': 'white',
+              'text-halo-width': 2,
+            }
+          });
+
+          // クリックイベント
+          this.map.on('click', 'poi-search-layer', (e) => {
+            const props = e.features[0].properties;
+            const coords = e.features[0].geometry.coordinates;
+            this._showPoiCard({
+              name: props.name,
+              address: props.address,
+              lng: coords[0],
+              lat: coords[1],
+              mapboxId: props.mapboxId
+            });
+          });
+
+          this.map.on('mouseenter', 'poi-search-layer', () => {
+            this.map.getCanvas().style.cursor = 'pointer';
+          });
+          this.map.on('mouseleave', 'poi-search-layer', () => {
+            this.map.getCanvas().style.cursor = '';
+          });
+        }
+      };
+
+      this.map.loaded() ? addLayers() : this.map.on('load', addLayers);
+    }
+
+    // 検索ボックスのイベント
+    _attachEvents() {
+      const input = document.getElementById('passenger-search-box');
+      const suggestionsEl = document.getElementById('search-suggestions');
+
+      input.addEventListener('input', (e) => {
+        clearTimeout(this.searchTimeout);
+        const query = e.target.value.trim();
+
+        if (query.length < 2) {
+          suggestionsEl.classList.add('hidden');
+          suggestionsEl.innerHTML = '';
+          return;
+        }
+
+        this.searchTimeout = setTimeout(() => {
+          this._fetchSuggestions(query);
+        }, 300);
+      });
+
+      input.addEventListener('blur', () => {
+        // 少し遅らせてクリックイベントを先に処理させる
+        setTimeout(() => suggestionsEl.classList.add('hidden'), 200);
+      });
+
+      input.addEventListener('focus', () => {
+        if (this.suggestions.length > 0) suggestionsEl.classList.remove('hidden');
+      });
+    }
+
+    // Search Box API - Suggest
+    async _fetchSuggestions(query) {
+      const bbox = this._getRouteBbox();
+      const params = new URLSearchParams({
+        q: query,
+        access_token: this.accessToken,
+        session_token: this.sessionToken,
+        limit: 10,
+        language: 'ja,en',
+      });
+
+      if (bbox) {
+        params.set('bbox', bbox.join(','));
+      }
+
+      // 現在地をproximityに設定
+      const loc = this.navigation.state.userLocation;
+      if (loc) {
+        params.set('proximity', `${loc.lng},${loc.lat}`);
+      }
+
+      try {
+        const res = await fetch(
+          `https://api.mapbox.com/search/searchbox/v1/suggest?${params}`
+        );
+        const data = await res.json();
+        this.suggestions = data.suggestions || [];
+        this._renderSuggestions(this.suggestions);
+      } catch (e) {
+        console.error('Suggestion fetch failed:', e);
+      }
+    }
+
+    // サジェストリスト描画
+    _renderSuggestions(suggestions) {
+      const suggestionsEl = document.getElementById('search-suggestions');
+
+      if (suggestions.length === 0) {
+        suggestionsEl.classList.add('hidden');
+        return;
+      }
+
+      suggestionsEl.innerHTML = suggestions.map((s, i) => `
+        <div class="suggestion-item" data-index="${i}">
+          <div class="suggestion-icon">📍</div>
+          <div>
+            <div class="suggestion-name">${s.name || s.place_formatted || '—'}</div>
+            <div class="suggestion-address">${s.place_formatted || s.full_address || ''}</div>
+          </div>
+        </div>
+      `).join('');
+
+      suggestionsEl.classList.remove('hidden');
+
+      // クリックイベント
+      suggestionsEl.querySelectorAll('.suggestion-item').forEach((el) => {
+        el.addEventListener('click', () => {
+          const index = parseInt(el.dataset.index);
+          this._retrievePoi(suggestions[index]);
+          suggestionsEl.classList.add('hidden');
+          document.getElementById('passenger-search-box').value =
+            suggestions[index].name || '';
+        });
+      });
+    }
+
+    // Search Box API - Retrieve（詳細取得）
+    async _retrievePoi(suggestion) {
+      try {
+        const res = await fetch(
+          `https://api.mapbox.com/search/searchbox/v1/retrieve/${suggestion.mapbox_id}` +
+          `?access_token=${this.accessToken}&session_token=${this.sessionToken}`
+        );
+        const data = await res.json();
+        const feature = data.features?.[0];
+        if (!feature) return;
+
+        const coords = feature.geometry.coordinates;
+        const props = feature.properties;
+
+        const poi = {
+          name: props.name || suggestion.name,
+          address: props.full_address || props.place_formatted || '',
+          lng: coords[0],
+          lat: coords[1],
+          mapboxId: suggestion.mapbox_id
+        };
+
+        this._showPoiCard(poi);
+        this._addPoiToMap([poi]); // 選択したPOIをマップに表示
+      } catch (e) {
+        console.error('Retrieve failed:', e);
+      }
+    }
+
+    // Symbol layerにPOIを追加
+    _addPoiToMap(pois) {
+      const features = pois.map(p => ({
+        type: 'Feature',
+        geometry: { type: 'Point', coordinates: [p.lng, p.lat] },
+        properties: {
+          name: p.name,
+          address: p.address,
+          mapboxId: p.mapboxId
+        }
+      }));
+
+      this.poiFeatures = features;
+      const src = this.map.getSource('poi-search-results');
+      if (src) {
+        src.setData({ type: 'FeatureCollection', features });
+      }
+    }
+
+    // POI詳細カードを表示
+    _showPoiCard(poi) {
+      this.currentPoi = poi;
+      document.getElementById('poi-card-name').textContent = poi.name;
+      document.getElementById('poi-card-address').textContent = poi.address || '住所情報なし';
+      const proposeBtn = document.getElementById('poi-propose-btn');
+      proposeBtn.disabled = false;
+      proposeBtn.textContent = '📍 Propose to Driver';
+      document.getElementById('poi-detail-card').classList.remove('hidden');
+
+      if (this.poiMarker) this.poiMarker.remove();
+      this.poiMarker = new mapboxgl.Marker({ color: '#667eea' })
+        .setLngLat([poi.lng, poi.lat])
+        .addTo(this.map);
+
+      // ── カメラ移動をプログラム的移動としてマーク ──
+      this.navigation.state.isProgrammaticMovement = true;
+      this.navigation.config.cameraFollowEnabled = false; // POI表示中はフォロー停止
+
+      this.map.flyTo({ center: [poi.lng, poi.lat], zoom: 15, duration: 800 });
+
+      // flyTo完了後もフォローを再開しない（ユーザーがカードを見ている間）
+      setTimeout(() => {
+        this.navigation.state.isProgrammaticMovement = false;
+        // cameraFollowEnabled は false のまま維持
+        // → ユーザーが recenter ボタンを押すか、propose するまでフォローしない
+      }, 900); // duration(800) より少し長め
+    }
+    // POIカードを閉じる
+    closePoiCard() {
+      document.getElementById('poi-detail-card').classList.add('hidden');
+      this.currentPoi = null;
+      if (this.poiMarker) { this.poiMarker.remove(); this.poiMarker = null; }
+      // カード閉じてもフォローは再開しない
+      // → ユーザーが手動でrecentreするか、次のproposeまで待つ
+    }
+
+    // ドライバーに提案 → 2秒後承認 → 目的地変更
+    async proposeToDriver() {
+      if (!this.currentPoi) return;
+      const poi = this.currentPoi;
+      const proposeBtn = document.getElementById('poi-propose-btn');
+      proposeBtn.disabled = true;
+      proposeBtn.textContent = '⏳ Sending to driver...';
+
+      // 2秒待機（承認シミュレーション）
+      await new Promise(resolve => setTimeout(resolve, 2000));
+
+      // 承認トースト表示
+      this._showApprovalToast();
+
+      // POIカードを閉じる
+      document.getElementById('poi-detail-card').classList.add('hidden');
+      this.currentPoi = null;
+      if (this.poiMarker) { this.poiMarker.remove(); this.poiMarker = null; }
+
+      // 検索ボックスをクリア
+      document.getElementById('passenger-search-box').value = '';
+      this._clearPoiLayer();
+
+      // 目的地変更 → 再ルーティング
+      await this._rerouteToNewDestination(poi);
+    }
+
+    // 承認トーストを表示
+    _showApprovalToast() {
+      const toast = document.getElementById('approval-toast');
+      toast.classList.add('show');
+      setTimeout(() => toast.classList.remove('show'), 3000);
+    }
+
+    // 新しい目的地に向けて再ルーティング
+    async _rerouteToNewDestination(poi) {
+      if (!this.navigation.state.userLocation) return;
+      try {
+        const origin = this.navigation.state.userLocation;
+        const destination = { lng: poi.lng, lat: poi.lat };
+        const newRoute = await this.navigation._fetchRoute(origin, destination);
+
+        this.navigation.state.currentRoute = newRoute;
+        this.navigation.state.currentStep = 0;
+        this.navigation._displayRoute(newRoute);
+        this.navigation.puckController.setRoute(newRoute.geometry);
+
+        // puckControllerリセット
+        this.navigation.puckController.lastLocation = null;
+        this.navigation.puckController.lastRawLocation = null;
+        this.navigation.puckController.lastAnimatedLocation = null;
+        this.navigation.puckController.lastMapMatchedLocation = null;
+        this.navigation.puckController.lastRawGPSForMatching = null;
+
+        // navigationリセット
+        this.navigation.lastProcessedLocation = null;
+        this.navigation.state.isOffRoute = false;
+        this.navigation.state.offRouteConfirmStartTime = null;
+        this.navigation.state.isCheckingOffRoute = false;
+        this.navigation.state.lastRerouteTime = Date.now();
+
+        this.navigation.enableCameraFollow();
+        this.navigation._emit('onRouteUpdate', { route: newRoute, isReroute: true });
+
+        if (newRoute.legs[0].steps.length > 0) {
+          this.navigation._speakInstruction(
+            'Destination updated. ' + newRoute.legs[0].steps[0].maneuver.instruction
+          );
+        }
+        console.log('✅ Destination updated to:', poi.name);
+
+        // ── シミュレーション中なら新しいルートで再スタート ──
+        if (simulationMode) {
+          console.log('🎬 Restarting simulation with new route');
+
+          // 既存のループを止める
+          if (simulationAnimationFrame) {
+            cancelAnimationFrame(simulationAnimationFrame);
+            simulationAnimationFrame = null;
+          }
+
+          // 新しいルートで再初期化
+          simulationCoordinates = newRoute.geometry.coordinates;
+          simulationIndex = 0;
+          simulationPaused = false;
+          lastSimulationTime = performance.now();
+          simulationAccumulator = 0;
+          lastCameraUpdate = 0;
+          simulationRouteLine = turf.lineString(simulationCoordinates);
+          simulationRouteLength = turf.length(simulationRouteLine, { units: 'meters' });
+
+          // puck補間もリセット
+          puckInterpolation = {
+            distanceTraveled: 0,
+            targetDistance: 0,
+            startDistance: 0,
+            startTime: 0,
+            duration: 1000,
+            initialized: false
+          };
+
+          // play/pauseボタンを更新
+          const ppBtn = document.getElementById('sim-play-pause');
+          if (ppBtn) {
+            ppBtn.textContent = '⏸️ Pause';
+            ppBtn.classList.add('active');
+          }
+
+          updateSimulationUI();
+
+          // ループ再スタート
+          runSimulationLoop();
+        }
+
+      } catch (e) {
+        console.error('Reroute to new destination failed:', e);
+      }
+    }
+    
+    
+
+    // POIレイヤーをクリア
+    _clearPoiLayer() {
+      this.poiFeatures = [];
+      const src = this.map.getSource('poi-search-results');
+      if (src) src.setData({ type: 'FeatureCollection', features: [] });
+      // session tokenを更新（新しい検索セッション）
+      this.sessionToken = this._generateSessionToken();
+    }
+
+    // 表示・非表示
+    show() { document.getElementById('passenger-search-ui').classList.remove('hidden'); }
+    hide() {
+      document.getElementById('passenger-search-ui').classList.add('hidden');
+      document.getElementById('search-suggestions').classList.add('hidden');
+      document.getElementById('poi-detail-card').classList.add('hidden');
+      this._clearPoiLayer();
+    }
+  }
+  
+  </script>
+  <script>
+    // ─────────────────────────────────────────────
+    // MAP INIT
+    // ─────────────────────────────────────────────
+    mapboxgl.accessToken = 'pk.eyJ1Ijoia2Vuamktc2hpbWEiLCJhIjoiY21pNnFpYjVwMDFnNzJrcjJxa2hheWh3byJ9.A3Y0qPkK-Oh5viSiBe619g';
+
+    const map = new mapboxgl.Map({
+      container: 'map',
+      style: 'mapbox://styles/mapbox/standard',
+      center: [139.7671, 35.6812],
+      zoom: 12,
+      pitch: 0,
+      language: 'en'
+    });
+
+    let navigation;
+    let navigationUI;
+    let passengerSearch;
+    let userLocation = null;
+    let userMarker = null;
+    let locationAccuracy = null;
+    let destinationMarker = null;
+    let isMapPickerMode = false;
+    let mapPickerTarget = 'destination'; // 'destination' or 'origin'
+
+    // Simulation variables
+    let simulationMode = false;
+    let simulationCoordinates = [];
+    let simulationRouteLine = null;
+    let simulationRouteLength = 0;
+    let simulationIndex = 0;
+    let simulationAnimationFrame = null;
+    let simulationSpeed = 1;
+    let simulationPaused = false;
+    let lastSimulationTime = 0;
+    let simulationAccumulator = 0;
+    let lastCameraUpdate = 0;
+
+    // Puck interpolation state
+    let puckInterpolation = {
+      distanceTraveled: 0, targetDistance: 0, startDistance: 0,
+      startTime: 0, duration: 1000, initialized: false
+    };
+
+    // Navigation state tracking
+    let wasNavigating = false;
+    let navigationStateMonitor = null;
+    let debugUpdateInterval = null;
+
+    // ─────────────────────────────────────────────
+    // HELPERS
+    // ─────────────────────────────────────────────
+    function calculateBearing(lat1, lng1, lat2, lng2) {
+      const φ1 = lat1*Math.PI/180, φ2 = lat2*Math.PI/180, Δλ = (lng2-lng1)*Math.PI/180;
+      const y = Math.sin(Δλ)*Math.cos(φ2);
+      const x = Math.cos(φ1)*Math.sin(φ2) - Math.sin(φ1)*Math.cos(φ2)*Math.cos(Δλ);
+      return ((Math.atan2(y,x)*180/Math.PI) + 360) % 360;
+    }
+
+    map.addControl(new mapboxgl.NavigationControl());
+
+    // ─────────────────────────────────────────────
+    // LOCATION STATUS UI
+    // ─────────────────────────────────────────────
+    const statusContainer = document.getElementById('location-status');
+    const statusIcon = document.getElementById('status-icon');
+    const statusText = document.getElementById('status-text');
+    const statusDetails = document.getElementById('status-details');
+    const startBtn = document.getElementById('start-btn');
+
+    function updateLocationStatus(state, message, details) {
+      statusContainer.className = `location-status ${state}`;
+      if (state === 'loading') { statusIcon.textContent = '⟳'; statusIcon.className = 'status-icon spinning'; }
+      else if (state === 'success') { statusIcon.textContent = '✓'; statusIcon.className = 'status-icon'; }
+      else if (state === 'error') { statusIcon.textContent = '⚠️'; statusIcon.className = 'status-icon'; }
+      statusText.textContent = message;
+      statusDetails.innerHTML = details;
+    }
+
+    function getUserLocation() {
+      updateLocationStatus('loading', 'Getting your location...', 'Please allow location permissions if prompted.');
+      if (!navigator.geolocation) { handleLocationError(new Error('Geolocation not supported')); return; }
+      navigator.geolocation.getCurrentPosition(handleLocationSuccess, handleLocationError, {
+        enableHighAccuracy: true, timeout: 10000, maximumAge: 0
+      });
+    }
+
+    function handleLocationSuccess(position) {
+      userLocation = { lng: position.coords.longitude, lat: position.coords.latitude };
+      locationAccuracy = position.coords.accuracy;
+      updateLocationStatus('success', 'Location confirmed',
+        `<strong>Lng:</strong> ${userLocation.lng.toFixed(6)}<br>
+         <strong>Lat:</strong> ${userLocation.lat.toFixed(6)}<br>
+         <strong>Accuracy:</strong> ±${Math.round(locationAccuracy)} m`);
+      startBtn.disabled = false;
+      startBtn.textContent = 'Start Navigation';
+      if (userMarker) userMarker.remove();
+      userMarker = new mapboxgl.Marker({ color: '#4264fb', scale: 1.2 })
+        .setLngLat([userLocation.lng, userLocation.lat])
+        .addTo(map);
+      map.flyTo({ center: [userLocation.lng, userLocation.lat], zoom: 15, duration: 2000 });
+    }
+
+    function handleLocationError(error) {
+      let details = `<strong>Error:</strong> ${error.message}<br>
+        <button class="btn-retry" onclick="getUserLocation()">🔄 Try Again</button>`;
+      updateLocationStatus('error', 'Location unavailable', details);
+      startBtn.disabled = true;
+      startBtn.textContent = 'Location Required';
+    }
+
+    // ─────────────────────────────────────────────
+    // MAP PICKER  (destination / origin 両対応)
+    // ─────────────────────────────────────────────
+    function openMapPicker(target) {
+      mapPickerTarget = target || 'destination';
+      isMapPickerMode = true;
+      document.getElementById('setup-panel').classList.add('hidden');
+      document.getElementById('map-picker-overlay').classList.remove('hidden');
+
+      const title = document.getElementById('map-picker-title');
+      const subtitle = document.getElementById('map-picker-subtitle');
+      if (mapPickerTarget === 'origin') {
+        title.textContent = '📍 Tap to set Start Point';
+        subtitle.textContent = 'Select your starting location';
+      } else {
+        title.textContent = '📍 Tap anywhere on the map';
+        subtitle.textContent = 'Select your destination';
+      }
+    }
+
+    function closeMapPicker() {
+      isMapPickerMode = false;
+      document.getElementById('setup-panel').classList.remove('hidden');
+      document.getElementById('map-picker-overlay').classList.add('hidden');
+    }
+
+    map.on('click', (e) => {
+      const setupPanel = document.getElementById('setup-panel');
+      if (isMapPickerMode || !setupPanel.classList.contains('hidden')) {
+        const lng = e.lngLat.lng;
+        const lat = e.lngLat.lat;
+
+        if (mapPickerTarget === 'origin') {
+          document.getElementById('origin-input').value = `${lng.toFixed(6)},${lat.toFixed(6)}`;
+        } else {
+          document.getElementById('destination-input').value = `${lng.toFixed(6)},${lat.toFixed(6)}`;
+          if (destinationMarker) destinationMarker.remove();
+          destinationMarker = new mapboxgl.Marker({ color: '#ef4444', scale: 1.2 })
+            .setLngLat([lng, lat]).addTo(map);
+        }
+
+        if (isMapPickerMode) {
+          setTimeout(() => closeMapPicker(), 300);
+        }
+      }
+    });
+
+    // ─────────────────────────────────────────────
+    // SIMULATION MODE TOGGLE → show/hide origin group
+    // ─────────────────────────────────────────────
+    document.getElementById('simulation-mode').addEventListener('change', (e) => {
+      const originGroup = document.getElementById('origin-group');
+      if (e.target.checked) {
+        originGroup.classList.remove('hidden');
+        startBtn.disabled = false;
+        startBtn.textContent = 'Start Navigation';
+      } else {
+        originGroup.classList.add('hidden');
+        if (!userLocation) {
+          startBtn.disabled = true;
+          startBtn.textContent = '⏳ Waiting for location...';
+        }
+      }
+    });
+
+    // Example destination selector
+    document.getElementById('example-destinations').addEventListener('change', (e) => {
+      if (e.target.value) {
+        document.getElementById('destination-input').value = e.target.value;
+        const [lng, lat] = e.target.value.split(',').map(Number);
+        if (destinationMarker) destinationMarker.remove();
+        destinationMarker = new mapboxgl.Marker({ color: '#ef4444', scale: 1.2 })
+          .setLngLat([lng, lat]).addTo(map);
+        map.flyTo({ center: [lng, lat], zoom: 13, duration: 2000 });
+      }
+    });
+
+    // ─────────────────────────────────────────────
+    // MAP & NAVIGATION INIT
+    // ─────────────────────────────────────────────
+    map.on('load', () => {
+      getUserLocation();
+
+      const selectedProfile = document.getElementById('profile-select').value;
+      const selectedLanguage = document.getElementById('language-select').value;
+
+      navigation = new TurnByTurnNavigation(map, {
+        advanceInstructionDistance: 50,
+        voiceEnabled: true,
+        cameraFollowEnabled: true,
+        profile: selectedProfile,
+        language: selectedLanguage,
+        cameraPitch: 60,
+        cameraZoom: 17
+      });
+
+      navigationUI = new NavigationUI('nav-ui', navigation);
+      navigationUI.hide();
+
+      passengerSearch = new PassengerSearch(map, mapboxgl.accessToken, navigation);
+    });
+
+    document.getElementById('profile-select').addEventListener('change', (e) => {
+      if (navigation) {
+        navigation.config.profile = e.target.value;
+        if (navigation.puckController) {
+          navigation.puckController.config.navigationProfile = e.target.value;
+          navigation.puckController._applyProfileSettings();
+        }
+      }
+    });
+
+    document.getElementById('language-select').addEventListener('change', (e) => {
+      if (navigation) navigation.config.language = e.target.value;
+    });
+
+    // ─────────────────────────────────────────────
+    // POI CARD GLOBAL HANDLERS
+    // ─────────────────────────────────────────────
+    function closePoiCard() {
+      if (passengerSearch) passengerSearch.closePoiCard();
+    }
+
+    function proposeToDriver() {
+      if (passengerSearch) passengerSearch.proposeToDriver();
+    }
+
+    // ─────────────────────────────────────────────
+    // SIMULATION
+    // ─────────────────────────────────────────────
+    function startSimulation(route) {
+      simulationCoordinates = route.geometry.coordinates;
+      simulationIndex = 0;
+      simulationPaused = false;
+      lastSimulationTime = performance.now();
+      simulationAccumulator = 0;
+      lastCameraUpdate = 0;
+      simulationRouteLine = turf.lineString(simulationCoordinates);
+      simulationRouteLength = turf.length(simulationRouteLine, { units: 'meters' });
+      puckInterpolation = { distanceTraveled:0, targetDistance:0, startDistance:0, startTime:0, duration:1000, initialized:false };
+      if (navigation && navigation.watchId) {
+        navigator.geolocation.clearWatch(navigation.watchId);
+        navigation.watchId = null;
+      }
+      document.getElementById('simulation-controls').classList.remove('hidden');
+      const ppBtn = document.getElementById('sim-play-pause');
+      if (ppBtn) { ppBtn.textContent = '⏸️ Pause'; ppBtn.classList.add('active'); }
+      updateSimulationUI();
+      runSimulationLoop();
+    }
+
+    function runSimulationLoop(currentTime) {
+      if (simulationPaused || !simulationMode) { simulationAnimationFrame = null; return; }
+      if (!navigation || !navigation.state || !navigation.state.isNavigating) { stopSimulation(); return; }
+      if (!currentTime) currentTime = performance.now();
+
+      // Interpolate puck along route every frame
+      if (puckInterpolation.initialized && simulationRouteLine) {
+        try {
+          const elapsed = currentTime - puckInterpolation.startTime;
+          const t = Math.min(1, elapsed / puckInterpolation.duration);
+          puckInterpolation.distanceTraveled =
+            puckInterpolation.startDistance +
+            (puckInterpolation.targetDistance - puckInterpolation.startDistance) * t;
+
+          const routeLengthKm = simulationRouteLength / 1000;
+
+          // ← ここでclampする
+          const distKm = Math.min(
+            puckInterpolation.distanceTraveled / 1000,
+            routeLengthKm - 0.0001
+          );
+
+          const pointOnRoute = turf.along(simulationRouteLine, distKm, { units: 'kilometers' });
+
+          if (pointOnRoute && navigation.puckController && navigation.puckController.puckMarker) {
+            navigation.puckController.puckMarker.setLngLat(pointOnRoute.geometry.coordinates);
+
+            const lookAheadKm = Math.min(distKm + 0.01, routeLengthKm - 0.0001);
+            const aheadPoint = turf.along(simulationRouteLine, lookAheadKm, { units: 'kilometers' });
+
+            if (aheadPoint) {
+              const bearing = calculateBearing(
+                pointOnRoute.geometry.coordinates[1], pointOnRoute.geometry.coordinates[0],
+                aheadPoint.geometry.coordinates[1], aheadPoint.geometry.coordinates[0]
+              );
+              if (!isNaN(bearing)) navigation.puckController.puckMarker.setRotation(bearing);
+            }
+          }
+        } catch (e) { console.error('Puck interpolation error:', e); }
+      }
+
+      const deltaTime = currentTime - lastSimulationTime;
+      lastSimulationTime = currentTime;
+      simulationAccumulator += (deltaTime / 1000) * simulationSpeed;
+      let coordsToProcess = Math.floor(simulationAccumulator);
+      simulationAccumulator -= coordsToProcess;
+
+      for (let i = 0; i < coordsToProcess; i++) {
+        if (simulationIndex >= simulationCoordinates.length) {
+          processSimulationCoordinate(simulationCoordinates.length - 1, true);
+          break;
+        } else {
+          processSimulationCoordinate(simulationIndex, false);
+          simulationIndex++;
+        }
+      }
+
+      updateSimulationUI();
+      simulationAnimationFrame = requestAnimationFrame(runSimulationLoop);
+    }
+
+    function processSimulationCoordinate(index, isEnd) {
+      try {
+        const coord = simulationCoordinates[index];
+        if (!coord || coord.length !== 2) return;
+        let distanceToThisCoord = 0;
+        if (index > 0) {
+          const coordLine = turf.lineString(simulationCoordinates.slice(0, index + 1));
+          distanceToThisCoord = turf.length(coordLine, { units: 'meters' });
+        }
+        if (!puckInterpolation.initialized) {
+          puckInterpolation.distanceTraveled = 0;
+          puckInterpolation.startDistance = 0;
+          puckInterpolation.targetDistance = 0;
+          puckInterpolation.initialized = true;
+          if (navigation && navigation.puckController && navigation.puckController.puckMarker) {
+            navigation.puckController.puckMarker.setLngLat([coord[0], coord[1]]);
+          }
+        }
+        puckInterpolation.startDistance = puckInterpolation.distanceTraveled;
+        puckInterpolation.targetDistance = distanceToThisCoord;
+        puckInterpolation.startTime = performance.now();
+        puckInterpolation.duration = 1000 / simulationSpeed;
+
+        // Camera update (throttled)
+        if (navigation && navigation.config.cameraFollowEnabled) {
+          const now = performance.now();
+          if (now - lastCameraUpdate > 300) {
+            let bearing = 0;
+            if (simulationRouteLine && distanceToThisCoord < simulationRouteLength) {
+            const routeLengthKm = simulationRouteLength / 1000;
+            const distKm = distanceToThisCoord / 1000;
+            const lookAheadKm = Math.min(distKm + 0.01, routeLengthKm - 0.001);
+            const cp = turf.along(simulationRouteLine, Math.min(distKm, routeLengthKm - 0.001), { units: 'kilometers' });
+            const ap = turf.along(simulationRouteLine, lookAheadKm, { units: 'kilometers' });
+              if (cp && ap) bearing = calculateBearing(cp.geometry.coordinates[1], cp.geometry.coordinates[0], ap.geometry.coordinates[1], ap.geometry.coordinates[0]);
+            }
+            navigation.state.isProgrammaticMovement = true;
+            navigation.map.easeTo({ center: [coord[0], coord[1]], bearing, pitch: navigation.config.cameraPitch||60, zoom: navigation.config.cameraZoom||17, duration: 500, essential: false });
+            setTimeout(() => { navigation.state.isProgrammaticMovement = false; }, 600);
+            lastCameraUpdate = now;
+          }
+        }
+
+        const userLoc = { lng: coord[0], lat: coord[1] };
+        navigation.state.userLocation = userLoc;
+        navigation.state.processedLocation = userLoc;
+        if (navigation._calculateProgress) navigation._calculateProgress(userLoc);
+        if (navigation._checkInstructionAdvancement) navigation._checkInstructionAdvancement();
+        if (navigation._checkDistanceFromRoute) {
+          const dist = navigation._checkDistanceFromRoute(userLoc);
+          const thresholds = navigation._getOffRouteThresholds();
+          if (dist > thresholds.immediateReroute) {
+            if (!navigation.state.isOffRoute) navigation._handleOffRoute();
+            navigation.state.isOffRoute = true;
+          } else { navigation.state.isOffRoute = false; }
+        }
+        navigation._emit('onProgressUpdate', {
+          location: userLoc, processedLocation: userLoc,
+          currentStep: navigation.state.currentStep,
+          distanceToNextStep: navigation.state.distanceToNextStep,
+          distanceRemaining: navigation.state.distanceRemaining,
+          durationRemaining: navigation.state.durationRemaining,
+          isOffRoute: navigation.state.isOffRoute
+        });
+      } catch (e) { console.error('processSimulationCoordinate error:', e); }
+    }
+
+    function toggleSimulation() {
+      simulationPaused = !simulationPaused;
+      const btn = document.getElementById('sim-play-pause');
+      if (simulationPaused) {
+        btn.textContent = '▶️ Play'; btn.classList.remove('active');
+        if (simulationAnimationFrame) { cancelAnimationFrame(simulationAnimationFrame); simulationAnimationFrame = null; }
+      } else {
+        btn.textContent = '⏸️ Pause'; btn.classList.add('active');
+        lastSimulationTime = performance.now(); simulationAccumulator = 0; lastCameraUpdate = 0;
+        runSimulationLoop();
+      }
+    }
+
+    function changeSimSpeed(direction) {
+      const speeds = [0.25, 0.5, 1, 2, 5, 10];
+      let idx = speeds.indexOf(simulationSpeed);
+      if (direction > 0 && idx < speeds.length-1) idx++;
+      else if (direction < 0 && idx > 0) idx--;
+      simulationSpeed = speeds[idx];
+      updateSimulationUI();
+    }
+
+    function updateSimulationUI() {
+      document.getElementById('sim-progress').textContent = `${simulationIndex} / ${simulationCoordinates.length}`;
+      document.getElementById('sim-speed').textContent = `Speed: ${simulationSpeed}x`;
+    }
+
+    function stopSimulation() {
+      simulationMode = false; simulationPaused = true;
+      if (simulationAnimationFrame) { cancelAnimationFrame(simulationAnimationFrame); simulationAnimationFrame = null; }
+      if (navigation) navigation.config.simulationMode = false;
+      document.getElementById('simulation-controls').classList.add('hidden');
+      document.getElementById('simulation-mode').checked = false;
+      document.getElementById('origin-group').classList.add('hidden');
+    }
+
+    // ─────────────────────────────────────────────
+    // NAVIGATION STATE MONITORING & DEBUG
+    // ─────────────────────────────────────────────
+    function startNavigationStateMonitoring() {
+      if (navigationStateMonitor) clearInterval(navigationStateMonitor);
+      navigationStateMonitor = setInterval(() => {
+        const isNavigating = navigation && navigation.state && navigation.state.isNavigating;
+        if (wasNavigating && !isNavigating) {
+          const backBtn = document.getElementById('back-to-setup-btn');
+          backBtn.classList.remove('hidden');
+          backBtn.style.display = 'flex';
+          clearInterval(navigationStateMonitor);
+          navigationStateMonitor = null;
+        }
+        wasNavigating = isNavigating;
+      }, 500);
+    }
+
+    function stopNavigationStateMonitoring() {
+      if (navigationStateMonitor) { clearInterval(navigationStateMonitor); navigationStateMonitor = null; }
+      wasNavigating = false;
+    }
+
+    function startDebugUpdate() {
+      document.getElementById('debug-panel').classList.remove('hidden');
+      if (debugUpdateInterval) clearInterval(debugUpdateInterval);
+      debugUpdateInterval = setInterval(() => {
+        if (navigation) {
+          const stats = navigation.getDebugStats();
+          document.getElementById('directions-api-count').textContent = stats.api.directions;
+          document.getElementById('mapmatching-api-count').textContent = stats.api.mapMatching;
+        }
+      }, 500);
+    }
+
+    function stopDebugUpdate() {
+      document.getElementById('debug-panel').classList.add('hidden');
+      if (debugUpdateInterval) { clearInterval(debugUpdateInterval); debugUpdateInterval = null; }
+    }
+
+    // ─────────────────────────────────────────────
+    // BACK TO SETUP
+    // ─────────────────────────────────────────────
+    function backToSetup() {
+      stopNavigationStateMonitoring();
+      stopDebugUpdate();
+      if (navigation) navigation.stopNavigation();
+      stopSimulation();
+      if (navigationUI) navigationUI.hide();
+      if (passengerSearch) passengerSearch.hide();
+      const backBtn = document.getElementById('back-to-setup-btn');
+      backBtn.classList.add('hidden'); backBtn.style.display = 'none';
+      document.getElementById('setup-panel').classList.remove('hidden');
+      if (userLocation && !userMarker) {
+        userMarker = new mapboxgl.Marker({ color: '#4264fb', scale: 1.2 })
+          .setLngLat([userLocation.lng, userLocation.lat]).addTo(map);
+      }
+      map.easeTo({ pitch: 0, bearing: 0, duration: 1000 });
+    }
+
+    // ─────────────────────────────────────────────
+    // START NAVIGATION
+    // ─────────────────────────────────────────────
+    async function startNavigation() {
+      if (navigation) navigation.resetDebugStats();
+
+      const destInput = document.getElementById('destination-input').value.trim();
+      const isSimulationMode = document.getElementById('simulation-mode').checked;
+      const originInput = document.getElementById('origin-input').value.trim();
+
+      if (!destInput) {
+        updateLocationStatus('error', 'Destination required', 'Please enter a destination.');
+        return;
+      }
+
+      if (!userLocation && !isSimulationMode) {
+        updateLocationStatus('error', 'Location not available', 'Please wait for GPS or enable simulation mode.');
+        return;
+      }
+
+      // シミュレーションモードで開始位置が指定されている場合はそれを使用
+      let origin;
+      if (isSimulationMode && originInput) {
+        const [oLng, oLat] = originInput.split(',').map(s => parseFloat(s.trim()));
+        if (!isNaN(oLng) && !isNaN(oLat)) {
+          origin = { lng: oLng, lat: oLat };
+        } else {
+          updateLocationStatus('error', 'Invalid start coordinates', 'Use format: longitude,latitude');
+          return;
+        }
+      } else {
+        origin = userLocation || { lng: map.getCenter().lng, lat: map.getCenter().lat };
+      }
+
+      const [dLng, dLat] = destInput.split(',').map(s => parseFloat(s.trim()));
+      if (isNaN(dLng) || isNaN(dLat)) {
+        updateLocationStatus('error', 'Invalid destination', 'Use format: longitude,latitude');
+        return;
+      }
+      const destination = { lng: dLng, lat: dLat };
+
+      try {
+        if (userMarker) { userMarker.remove(); userMarker = null; }
+        if (destinationMarker) { destinationMarker.remove(); destinationMarker = null; }
+        if (map.getLayer('user-accuracy-circle')) {
+          map.removeLayer('user-accuracy-circle');
+          map.removeSource('user-accuracy');
+        }
+
+        simulationMode = isSimulationMode;
+        navigation.setSimulationMode(simulationMode);
+        navigation.primeSpeechSynthesis();
+
+        document.getElementById('setup-panel').classList.add('hidden');
+        navigationUI.show();
+
+        await navigation.startNavigation(origin, destination);
+
+        wasNavigating = true;
+        startNavigationStateMonitoring();
+        startDebugUpdate();
+
+        // 非ドライバー検索UIを表示
+        passengerSearch.show();
+
+        if (simulationMode && navigation.state && navigation.state.currentRoute) {
+          startSimulation(navigation.state.currentRoute);
+        }
+
+      } catch (error) {
+        console.error('Navigation error:', error);
+        updateLocationStatus('error', 'Navigation failed', `${error.message}`);
+        document.getElementById('setup-panel').classList.remove('hidden');
+        navigationUI.hide();
+        if (passengerSearch) passengerSearch.hide();
+        stopSimulation();
+        stopDebugUpdate();
+        stopNavigationStateMonitoring();
+      }
+    }
+  </script>
+</body>
+</html>
+  </main>
+  <footer>
+    <p>© 2024, Mapbox Demos</p>
+  </footer>
+</body>
+</html>
